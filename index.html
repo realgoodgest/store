@@ -1,0 +1,3093 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto Order – 6 Musim Dunia</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: radial-gradient(ellipse at top, #1e1b4b 0%, #0b1020 70%);
+    color: #f1f5f9;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+  header { text-align: center; padding: 20px 16px 8px; }
+  header h1 {
+    font-size: 1.7rem;
+    background: linear-gradient(90deg, #fbbf24, #f472b6, #60a5fa);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header p { opacity: .7; font-size: .9rem; margin-top: 4px; }
+
+  #scene {
+    position: relative;
+    width: 100%;
+    max-width: 1000px;
+    height: 480px;
+    margin: 12px auto;
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rgba(0,0,0,.6), 0 0 80px rgba(96,165,250,.12);
+    transition: box-shadow .2s;
+  }
+  #scene.dragover {
+    box-shadow: 0 0 0 3px #a78bfa, 0 0 60px rgba(167,139,250,.6);
+  }
+  #dropOverlay {
+    position: absolute; inset: 0;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(76,29,149,.55);
+    color: #fff; font-size: 1.2rem; font-weight: 700;
+    border: 3px dashed #c4b5fd; border-radius: 22px;
+    pointer-events: none; z-index: 5;
+    text-align: center; padding: 20px;
+  }
+  #scene.dragover #dropOverlay { display: flex; }
+
+  /* Video latar (opsional, tampil saat video diunggah) */
+  #bgVideo {
+    position: absolute; right: 12px; bottom: 12px;
+    width: 220px; max-width: 40%; border-radius: 12px;
+    border: 2px solid rgba(255,255,255,.25);
+    display: none; z-index: 4; background: #000;
+    box-shadow: 0 6px 20px rgba(0,0,0,.5);
+  }
+  #bgVideo.show { display: block; }
+  #bgVideoClose {
+    position: absolute; right: 16px; bottom: 16px; z-index: 6;
+    width: 24px; height: 24px; border-radius: 50%; border: none;
+    background: rgba(15,23,42,.85); color: #fff; cursor: pointer;
+    display: none; font-size: 14px; line-height: 24px; text-align: center;
+  }
+  #bgVideoClose.show { display: block; }
+
+  canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+  #tooltip {
+    position: absolute; pointer-events: none;
+    background: rgba(15,23,42,.9); color: #fff;
+    padding: 6px 10px; border-radius: 8px; font-size: .8rem;
+    transform: translate(-50%, -120%); display: none; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,.4);
+  }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center; padding: 10px;
+  }
+  .controls button {
+    padding: 10px 14px; border: none; border-radius: 12px;
+    cursor: pointer; font-weight: 600; background: #1e293b; color: #f1f5f9;
+    transition: transform .15s, background .2s, box-shadow .2s;
+    box-shadow: 0 2px 0 rgba(0,0,0,.4);
+  }
+  .controls button:hover { transform: translateY(-2px); background: #334155; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
+  .controls button.active { background: linear-gradient(135deg,#f59e0b,#f472b6); color: #111; }
+  #orderBtn { background: linear-gradient(135deg,#22c55e,#14b8a6); color: #052e16; }
+  #orderBtn:hover { background: linear-gradient(135deg,#16a34a,#0d9488); }
+  #feedBtn { background: #a16207; color: #fff; }
+  #feedBtn.active { background: #fbbf24; color: #111; }
+  #muteBtn { background: #475569; }
+  #musicBtn { background: #0f766e; }
+  #dayBtn { background: #312e81; }
+  #mediaBtn { background: #7c3aed; }
+  #mediaBtn:hover { background: #6d28d9; }
+  #clearMediaBtn { background: #7f1d1d; }
+
+  /* Input file: tetap di DOM & bisa diklik lewat label (tidak pakai display:none) */
+  .file-input {
+    position: absolute; width: 1px; height: 1px;
+    opacity: 0; overflow: hidden; pointer-events: none;
+  }
+
+  #hint { text-align: center; font-size: .85rem; opacity: .6; padding-bottom: 6px; }
+  #mediaStatus { text-align: center; font-size: .85rem; opacity: .75; padding-bottom: 8px; }
+
+  #panel {
+    max-width: 1000px; margin: 0 auto 30px; padding: 16px;
+    background: rgba(17,24,39,.8); backdrop-filter: blur(6px);
+    border-radius: 16px; border: 1px solid rgba(255,255,255,.06);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  @media (max-width: 700px) { #panel { grid-template-columns: 1fr; } }
+  .card { background: #1f2937; padding: 12px; border-radius: 12px; }
+  .card h3 { font-size: .95rem; margin-bottom: 8px; color: #fbbf24; }
+  .card ul { list-style: none; font-size: .88rem; line-height: 1.7; }
+  #log { font-family: monospace; font-size: .8rem; height: 150px; overflow-y: auto; }
+  #log div { border-bottom: 1px solid #374151; padding: 3px 0; }
+  .order-status { font-size: 1.05rem; font-weight: 700; }
+  .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 999px;
+    font-size: .75rem; font-weight: 700; margin-left: 6px;
+  }
+  .b-pending { background: #facc15; color: #111; }
+  .b-paid { background: #38bdf8; color: #082f49; }
+  .b-processing { background: #a78bfa; color: #2e1065; }
+  .b-shipped { background: #fb923c; color: #431407; }
+  .b-completed { background: #22c55e; color: #052e16; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌍 Auto Order – 6 Musim Dunia</h1>
+  <p>Pilih musim, klik hewan untuk berinteraksi, lalu jalankan auto order.</p>
+</header>
+
+<div id="scene">
+  <canvas id="cv"></canvas>
+  <video id="bgVideo" muted loop playsinline></video>
+  <button id="bgVideoClose" title="Tutup video">✕</button>
+  <div id="tooltip"></div>
+  <div id="dropOverlay">🎵🎬 Lepaskan file audio / video di sini<br><small style="font-weight:400;opacity:.85">1 file = semua musim · banyak file = urut per musim</small></div>
+</div>
+
+<div class="controls" id="seasonBtns"></div>
+<div class="controls">
+  <button id="orderBtn">🛒 Jalankan Auto Order</button>
+  <button id="feedBtn">🌾 Mode Beri Makan</button>
+  <button id="dayBtn">🌗 Siklus Hari: On</button>
+  <button id="muteBtn">🔊 Suara: On</button>
+  <button id="musicBtn">🎵 Musik: On</button>
+  <button id="mediaBtn">📁 Pilih Audio / Video</button>
+  <button id="clearMediaBtn">🗑️ Hapus Media</button>
+  <input type="file" id="mediaInput" class="file-input"
+         accept="audio/*,video/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.webm,.mov,.mkv,.m4v,.ogv"
+         multiple>
+</div>
+<div id="hint">Klik hewan = sapa &amp; suara · Mode Beri Makan lalu klik tanah = hewan datang makan · Klik apel di tanah = ambil · Klik traktor = bunyi klakson · Seret file audio/video ke area scene untuk memutarnya</div>
+<div id="mediaStatus">Musik: prosedural (belum ada file audio/video)</div>
+
+<div id="panel">
+  <div class="card">
+    <h3>🧾 Status Order</h3>
+    <div class="order-status">
+      Order #<span id="ordNo">-</span>
+      <span id="ordBadge" class="badge b-pending">belum ada</span>
+    </div>
+    <ul id="ordItems" style="margin-top:8px"><li>Belum ada pesanan.</li></ul>
+    <p style="margin-top:8px;font-weight:700">Total: Rp <span id="ordTotal">0</span></p>
+  </div>
+  <div class="card">
+    <h3>📜 Log Aktivitas</h3>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA MUSIM
+// ============================================================
+const SEASONS = [
+  {
+    key: 'semi', name: 'Semi', emoji: '🌸',
+    sky: ['#a7f3d0', '#e0f2fe'], ground: '#86efac', hill: '#4ade80',
+    particle: 'petal', particleColor: '#fbcfe8',
+    cloudColor: '#ffffff', storm: false,
+    tractorColor: '#16a34a', tractorTrail: 'soil', dust: false,
+    apple: { name: 'Apel (Bunga Mekar)', fruitColor: '#fda4af', leaf: '#4ade80' },
+    fall: { type: 'petal', rate: .004, color: '#fda4af', size: 4, fruit: false },
+    animals: ['sapi', 'ayam', 'domba', 'kuda'],
+    products: [
+      { id: 'apel-semi', name: 'Apel Bunga', price: 18000 },
+      { id: 'sayur-semi', name: 'Sayuran Muda', price: 12000 },
+      { id: 'susu-semi', name: 'Susu Segar', price: 15000 }
+    ]
+  },
+  {
+    key: 'panas', name: 'Panas', emoji: '☀️',
+    sky: ['#38bdf8', '#fef08a'], ground: '#a3e635', hill: '#65a30d',
+    particle: 'heat', particleColor: '#fde047',
+    cloudColor: '#f8fafc', storm: false,
+    tractorColor: '#ea580c', tractorTrail: 'dust', dust: true,
+    apple: { name: 'Apel Muda', fruitColor: '#86efac', leaf: '#22c55e' },
+    fall: { type: 'fruit', rate: .002, color: '#86efac', size: 6, fruit: true, bounce: .3 },
+    animals: ['sapi', 'babi', 'ayam', 'bebek'],
+    products: [
+      { id: 'apel-panas', name: 'Apel Muda Segar', price: 20000 },
+      { id: 'buah-panas', name: 'Buah Musiman', price: 16000 },
+      { id: 'telur-panas', name: 'Telur Ayam Kampung', price: 14000 }
+    ]
+  },
+  {
+    key: 'gugur', name: 'Gugur', emoji: '🍂',
+    sky: ['#fb923c', '#fde68a'], ground: '#ca8a04', hill: '#a16207',
+    particle: 'leaf', particleColor: '#f97316',
+    cloudColor: '#fed7aa', storm: false,
+    tractorColor: '#dc2626', tractorTrail: 'leaves', dust: false,
+    apple: { name: 'Apel Matang', fruitColor: '#ef4444', leaf: '#84cc16' },
+    fall: { type: 'fruit', rate: .02, color: '#ef4444', size: 7, fruit: true, bounce: .35 },
+    animals: ['sapi', 'kambing', 'ayam', 'domba'],
+    products: [
+      { id: 'apel-gugur', name: 'Apel Merah Manis', price: 22000 },
+      { id: 'wortel-gugur', name: 'Wortel Panen', price: 11000 },
+      { id: 'keju-gugur', name: 'Keju Kambing', price: 25000 }
+    ]
+  },
+  {
+    key: 'dingin', name: 'Dingin', emoji: '❄️',
+    sky: ['#1e3a8a', '#bfdbfe'], ground: '#e2e8f0', hill: '#cbd5e1',
+    particle: 'snow', particleColor: '#ffffff',
+    cloudColor: '#e2e8f0', storm: false,
+    tractorColor: '#2563eb', tractorTrail: 'snow', dust: false,
+    apple: { name: 'Apel Tersimpan', fruitColor: '#dc2626', leaf: '#64748b' },
+    fall: { type: 'fruit', rate: .006, color: '#dc2626', size: 6, fruit: true, bounce: .2 },
+    animals: ['sapi', 'domba', 'rusa', 'ayam'],
+    products: [
+      { id: 'apel-dingin', name: 'Apel Simpanan', price: 24000 },
+      { id: 'sayur-dingin', name: 'Sayur Simpanan', price: 13000 },
+      { id: 'daging-dingin', name: 'Daging Olahan', price: 35000 }
+    ]
+  },
+  {
+    key: 'hujan', name: 'Hujan', emoji: '🌧️',
+    sky: ['#1e293b', '#475569'], ground: '#4d7c0f', hill: '#365314',
+    particle: 'rain', particleColor: '#7dd3fc',
+    cloudColor: '#334155', storm: true,
+    tractorColor: '#7c3aed', tractorTrail: 'mud', dust: false,
+    apple: { name: 'Apel Berair', fruitColor: '#be185d', leaf: '#3f6212' },
+    fall: { type: 'fruit', rate: .012, color: '#be185d', size: 7, fruit: true, bounce: .15, wet: true },
+    animals: ['bebek', 'sapi', 'ayam', 'babi'],
+    products: [
+      { id: 'apel-hujan', name: 'Apel Segar Hujan', price: 19000 },
+      { id: 'jamur-hujan', name: 'Jamur Segar', price: 17000 },
+      { id: 'telur-hujan', name: 'Telur Bebek', price: 16000 }
+    ]
+  },
+  {
+    key: 'kemarau', name: 'Kemarau', emoji: '🏜️',
+    sky: ['#f97316', '#fde047'], ground: '#d97706', hill: '#b45309',
+    particle: 'dust', particleColor: '#fcd34d',
+    cloudColor: '#fef3c7', storm: false,
+    tractorColor: '#eab308', tractorTrail: 'dust', dust: true,
+    apple: { name: 'Apel Keriput', fruitColor: '#b91c1c', leaf: '#a16207' },
+    fall: { type: 'fruit', rate: .005, color: '#b91c1c', size: 6, fruit: true, bounce: .2, wrinkled: true },
+    animals: ['unta', 'kambing', 'ayam', 'sapi'],
+    products: [
+      { id: 'apel-kemarau', name: 'Apel Pilihan Kemarau', price: 21000 },
+      { id: 'kurma-kemarau', name: 'Kurma Kering', price: 28000 },
+      { id: 'susu-unta', name: 'Susu Unta', price: 30000 }
+    ]
+  }
+];
+
+// ============================================================
+// SETUP
+// ============================================================
+const canvas = document.getElementById('cv');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+const btnWrap = document.getElementById('seasonBtns');
+let W, H, DPR;
+
+function resize() {
+  DPR = window.devicePixelRatio || 1;
+  const r = canvas.getBoundingClientRect();
+  W = r.width; H = r.height;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildLandscape();
+  spawnStars();
+}
+window.addEventListener('resize', resize);
+
+let seasonIdx = 0;
+let t = 0;
+let particles = [];
+let animals = [];
+let birds = [];
+let clouds = [];
+let transition = 1;
+let feedMode = false;
+let foods = [];
+let nextLightning = 0;
+let bolts = [];
+let sparks = [];
+let barnLight = 0;
+let fallingApples = [];
+let collected = 0;
+let landscape = [];
+let butterflies = [];
+let rainPuddles = [];
+let fireflies = [];
+let tractor = null;
+let trailParticles = [];
+let stars = [];
+let bees = [];
+let fogBands = [];
+let rainbow = null;
+let dayMode = true;
+let dayPhase = .3;
+let doorOpen = 0;
+let doorTarget = 0;
+let doorHoldUntil = 0;
+let doorWasOpen = false;
+let homeQueue = [];
+let nextHomeAt = 0;
+let homeCycleStarted = false;
+let flyers = [];
+let orderNo = 0;
+let currentOrder = null;
+let flashAlpha = 0;
+
+// ============================================================
+// UTILITAS
+// ============================================================
+function rnd(a, b) { return a + Math.random() * (b - a); }
+
+function shade(hex, amt) {
+  if (!hex.startsWith('#')) return hex;
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const f = amt < 0 ? 0 : 255;
+  const p = Math.abs(amt);
+  r = Math.round((f - r) * p + r);
+  g = Math.round((f - g) * p + g);
+  b = Math.round((f - b) * p + b);
+  return `rgb(${r},${g},${b})`;
+}
+
+function hexToRgb(hex) {
+  if (hex.startsWith('rgb')) return hex.match(/\d+/g).slice(0, 3).map(Number);
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function mixHex(a, b, p) {
+  const pa = hexToRgb(a), pb = hexToRgb(b);
+  const r = Math.round(pa[0] + (pb[0] - pa[0]) * p);
+  const g = Math.round(pa[1] + (pb[1] - pa[1]) * p);
+  const bl = Math.round(pa[2] + (pb[2] - pa[2]) * p);
+  return `rgb(${r},${g},${bl})`;
+}
+
+function orchardTrees() {
+  const baseY = H * .66;
+  const x0 = W * .72, x1 = W - 20;
+  const count = 3;
+  const trees = [];
+  for (let i = 0; i < count; i++) {
+    const x = x0 + 30 + i * ((x1 - x0 - 60) / (count - 1 || 1));
+    trees.push({ x, baseY, crownY: baseY - 70, crownR: 38 });
+  }
+  return trees;
+}
+function barnRect() { return { x: W * .04, y: H * .42, w: 110, h: 90 }; }
+function barnDoor() {
+  const b = barnRect();
+  return { x: b.x + b.w / 2, y: b.y + b.h };
+}
+
+// ============================================================
+// SIKLUS HARI
+// ============================================================
+function dayLight() {
+  if (!dayMode) return 1;
+  const x = Math.sin((dayPhase - .25) * Math.PI * 2) * .5 + .5;
+  return Math.max(0, Math.min(1, x * 1.4 - .2));
+}
+function nightAmount() { return 1 - dayLight(); }
+
+// ============================================================
+// BINTANG
+// ============================================================
+function spawnStars() {
+  stars = [];
+  for (let i = 0; i < 80; i++) {
+    stars.push({
+      x: Math.random() * W, y: Math.random() * H * .55,
+      r: Math.random() * 1.4 + .3, ph: Math.random() * 10, sp: .02 + Math.random() * .05
+    });
+  }
+}
+function drawStars() {
+  const nt = nightAmount();
+  if (nt < .05) return;
+  stars.forEach(s => {
+    const tw = (Math.sin(t * s.sp + s.ph) + 1) / 2;
+    ctx.fillStyle = `rgba(255,255,255,${(.3 + tw * .7) * nt})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+// ============================================================
+// AURORA (musim dingin)
+// ============================================================
+function drawAurora() {
+  const s = SEASONS[seasonIdx];
+  if (s.key !== 'dingin') return;
+  const a = Math.max(.25, nightAmount()) * .55;
+  for (let b = 0; b < 3; b++) {
+    const g = ctx.createLinearGradient(0, 0, 0, H * .5);
+    const hue = b === 0 ? '74,222,128' : b === 1 ? '167,139,250' : '45,212,191';
+    g.addColorStop(0, `rgba(${hue},0)`);
+    g.addColorStop(.5, `rgba(${hue},${a * (.5 + .3 * Math.sin(t * .01 + b))})`);
+    g.addColorStop(1, `rgba(${hue},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(0, H * .05 + b * 20);
+    for (let x = 0; x <= W; x += 16) {
+      const y = H * (.1 + .05 * b) + Math.sin(x * .008 + t * .01 + b * 1.7) * 26 + Math.sin(x * .02 - t * .015 + b) * 8;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W, H * .35); ctx.lineTo(0, H * .35);
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+// ============================================================
+// KABUT
+// ============================================================
+function spawnFog() {
+  fogBands = [];
+  const s = SEASONS[seasonIdx];
+  if (s.key !== 'semi' && s.key !== 'hujan') return;
+  for (let i = 0; i < 3; i++) {
+    fogBands.push({
+      y: H * (.62 + i * .06), x: Math.random() * W,
+      speed: (.1 + Math.random() * .15) * (i % 2 ? 1 : -1),
+      h: 30 + Math.random() * 20, a: .25 + Math.random() * .15
+    });
+  }
+}
+function drawFog() {
+  const s = SEASONS[seasonIdx];
+  if (s.key !== 'semi' && s.key !== 'hujan') return;
+  fogBands.forEach(f => {
+    f.x += f.speed;
+    const w = W * 1.4;
+    for (let k = 0; k < 2; k++) {
+      const x = ((f.x + k * w) % (w * 2)) - W * .2;
+      const g = ctx.createLinearGradient(0, f.y - f.h, 0, f.y + f.h);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(.5, `rgba(255,255,255,${f.a})`);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x - W * .3, f.y - f.h, w, f.h * 2);
+    }
+  });
+}
+
+// ============================================================
+// PELANGI
+// ============================================================
+function updateRainbow() {
+  const s = SEASONS[seasonIdx];
+  if (s.key !== 'hujan') { rainbow = null; return; }
+  if (!rainbow && Math.random() < .0015) rainbow = { life: 0, max: 600 };
+  if (rainbow) {
+    rainbow.life++;
+    if (rainbow.life > rainbow.max) rainbow = null;
+  }
+}
+function drawRainbow() {
+  if (!rainbow) return;
+  const p = rainbow.life / rainbow.max;
+  const a = Math.min(p * 4, 1, (1 - p) * 4) * .45;
+  const cx = W * .5, cy = H * .72, R = W * .38;
+  const cols = ['#f87171', '#fb923c', '#fde047', '#4ade80', '#60a5fa', '#a78bfa'];
+  cols.forEach((c, i) => {
+    ctx.strokeStyle = c;
+    ctx.globalAlpha = a;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R - i * 6, Math.PI, 0);
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ============================================================
+// GOD RAYS
+// ============================================================
+function drawGodRays() {
+  const s = SEASONS[seasonIdx];
+  if (!(s.key === 'panas' || s.key === 'kemarau')) return;
+  if (nightAmount() > .5) return;
+  const sx = W * .85, sy = 70;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 6; i++) {
+    const ang = Math.PI * .55 + i * .12 + Math.sin(t * .004 + i) * .03;
+    const len = H * 1.4;
+    const g = ctx.createLinearGradient(sx, sy, sx + Math.cos(ang) * len, sy + Math.sin(ang) * len);
+    g.addColorStop(0, 'rgba(255,250,210,.22)');
+    g.addColorStop(1, 'rgba(255,250,210,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + Math.cos(ang - .04) * len, sy + Math.sin(ang - .04) * len);
+    ctx.lineTo(sx + Math.cos(ang + .04) * len, sy + Math.sin(ang + .04) * len);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ============================================================
+// LEBAH
+// ============================================================
+function spawnBees() {
+  bees = [];
+  if (SEASONS[seasonIdx].key !== 'semi') return;
+  for (let i = 0; i < 4; i++) {
+    bees.push({ x: rnd(W * .1, W * .9), y: rnd(H * .45, H * .75), ph: rnd(0, 10), speed: rnd(.8, 1.4) });
+  }
+}
+function drawBees() {
+  if (SEASONS[seasonIdx].key !== 'semi') return;
+  bees.forEach(b => {
+    b.x += Math.cos(t * .05 + b.ph) * b.speed * 1.5;
+    b.y += Math.sin(t * .09 + b.ph) * 1.2;
+    if (b.x > W) b.x = 0;
+    if (b.x < 0) b.x = W;
+    if (b.y < H * .4) b.y = H * .6;
+    if (b.y > H * .8) b.y = H * .5;
+    ctx.fillStyle = '#facc15';
+    ctx.beginPath(); ctx.ellipse(b.x, b.y, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.fillRect(b.x - 2, b.y - 2, 1.5, 4); ctx.fillRect(b.x + 1, b.y - 2, 1.5, 4);
+    ctx.fillStyle = 'rgba(255,255,255,.7)';
+    const f = Math.abs(Math.sin(t * .6 + b.ph));
+    ctx.beginPath(); ctx.ellipse(b.x - 1, b.y - 4, 3, 2 * f + .5, -.3, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+// ============================================================
+// RIAK AIR
+// ============================================================
+function drawWaterShimmer(x, y, rx, ry) {
+  for (let i = 0; i < 4; i++) {
+    const off = ((t * .4 + i * 23) % (rx * 2)) - rx;
+    ctx.strokeStyle = `rgba(255,255,255,${.35 * (1 - Math.abs(off) / rx)})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + off - 6, y + (i - 1.5) * ry * .4);
+    ctx.lineTo(x + off + 6, y + (i - 1.5) * ry * .4);
+    ctx.stroke();
+  }
+}
+
+// ============================================================
+// LANGIT, MATAHARI, BULAN, AWAN
+// ============================================================
+function drawSky(s) {
+  const nt = nightAmount();
+  const top = mixHex(s.sky[0], '#0b1020', nt * .85);
+  const bot = mixHex(s.sky[1], '#1e1b4b', nt * .75);
+  const g = ctx.createLinearGradient(0, 0, 0, H * .7);
+  g.addColorStop(0, top);
+  g.addColorStop(1, bot);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  const sunsetGlow = Math.max(0, 1 - Math.abs(dayPhase - .25) * 12) + Math.max(0, 1 - Math.abs(dayPhase - .75) * 12);
+  if (dayMode && sunsetGlow > 0 && !s.storm) {
+    const sg = ctx.createLinearGradient(0, H * .4, 0, H * .7);
+    sg.addColorStop(0, 'rgba(251,146,60,0)');
+    sg.addColorStop(1, `rgba(251,146,60,${.35 * sunsetGlow})`);
+    ctx.fillStyle = sg;
+    ctx.fillRect(0, H * .4, W, H * .3);
+  }
+}
+
+function drawSun(s) {
+  if (s.storm) return;
+  const nt = nightAmount();
+  if (nt > .7) {
+    const mx = W * .15, my = 70;
+    ctx.fillStyle = `rgba(254,252,232,${.9 * (1 - nt * .1)})`;
+    ctx.beginPath(); ctx.arc(mx, my, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(11,16,32,.9)';
+    ctx.beginPath(); ctx.arc(mx + 8, my - 4, 18, 0, Math.PI * 2); ctx.fill();
+    return;
+  }
+  const isHot = s.key === 'panas' || s.key === 'kemarau';
+  const x = W * .85, y = 70, r = isHot ? 36 : 26;
+  if (isHot) {
+    ctx.strokeStyle = 'rgba(253,224,71,.5)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2 + t * .003;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * (r + 6), y + Math.sin(a) * (r + 6));
+      ctx.lineTo(x + Math.cos(a) * (r + 16), y + Math.sin(a) * (r + 16));
+      ctx.stroke();
+    }
+  }
+  const g = ctx.createRadialGradient(x, y, 4, x, y, r + 14);
+  g.addColorStop(0, isHot ? '#fef08a' : '#fff7ed');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r + 14, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.fillStyle = isHot ? '#fde047' : '#fef3c7';
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function spawnClouds() {
+  const s = SEASONS[seasonIdx];
+  clouds = [];
+  const n = s.storm ? 6 : 3;
+  for (let i = 0; i < n; i++) {
+    clouds.push({
+      x: Math.random() * W,
+      y: 20 + Math.random() * 60,
+      scale: s.storm ? 1.3 + Math.random() * .6 : .8 + Math.random() * .5,
+      speed: s.storm ? .3 + Math.random() * .3 : .15 + Math.random() * .2,
+      puffs: [[-30, 0, 24], [-5, -10, 30], [22, -2, 24], [40, 6, 18]].map(([dx, dy, r]) => ({
+        dx: dx + (Math.random() - .5) * 8,
+        dy: dy + (Math.random() - .5) * 6,
+        r: r * (.9 + Math.random() * .2)
+      }))
+    });
+  }
+}
+function drawCloud(c, color, dark) {
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.scale(c.scale, c.scale);
+  ctx.fillStyle = color;
+  c.puffs.forEach(p => { ctx.beginPath(); ctx.arc(p.dx, p.dy, p.r, 0, Math.PI * 2); ctx.fill(); });
+  if (dark) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(-60, 14, 120, 8); }
+  ctx.restore();
+}
+function drawClouds(s) {
+  clouds.forEach(c => {
+    c.x += c.speed;
+    if (c.x > W + 90) c.x = -90;
+    drawCloud(c, s.cloudColor, s.storm);
+  });
+}
+
+function drawMountains(s) {
+  ctx.fillStyle = shade(s.hill, .3);
+  ctx.globalAlpha = .55;
+  ctx.beginPath();
+  ctx.moveTo(0, H * .6);
+  for (let x = 0; x <= W; x += 10) {
+    const y = H * .42 + Math.sin(x * .006 + t * .0008) * 40 + Math.sin(x * .02) * 8;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, H * .6); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawHills(s) {
+  ctx.fillStyle = s.hill;
+  ctx.beginPath();
+  ctx.moveTo(0, H * .55);
+  for (let x = 0; x <= W; x += 20) ctx.lineTo(x, H * .55 + Math.sin(x * .01 + t * .002) * 18);
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = shade(s.hill, .15);
+  ctx.beginPath();
+  ctx.moveTo(0, H * .5);
+  for (let x = 0; x <= W; x += 20) ctx.lineTo(x, H * .5 + Math.sin(x * .014 + 2) * 14);
+  ctx.lineTo(W, H * .6); ctx.lineTo(0, H * .6); ctx.closePath();
+  ctx.fill();
+}
+
+function spawnBirds() {
+  birds = [];
+  for (let i = 0; i < 4; i++) {
+    birds.push({ x: Math.random() * W, y: 40 + Math.random() * 90, speed: .5 + Math.random() * .7, phase: Math.random() * 10 });
+  }
+}
+function drawBirds() {
+  ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.5;
+  birds.forEach(b => {
+    b.x += b.speed;
+    if (b.x > W + 20) b.x = -20;
+    const flap = Math.sin(t * .1 + b.phase) * 4;
+    ctx.beginPath();
+    ctx.moveTo(b.x - 8, b.y - flap);
+    ctx.quadraticCurveTo(b.x - 4, b.y - 4, b.x, b.y);
+    ctx.quadraticCurveTo(b.x + 4, b.y - 4, b.x + 8, b.y - flap);
+    ctx.stroke();
+  });
+}
+
+function drawGround(s) {
+  ctx.fillStyle = s.ground;
+  ctx.fillRect(0, H * .68, W, H * .32);
+  const g = ctx.createLinearGradient(0, H * .68, 0, H);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,.18)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, H * .68, W, H * .32);
+  ctx.strokeStyle = 'rgba(0,0,0,.15)';
+  ctx.beginPath(); ctx.moveTo(0, H * .68); ctx.lineTo(W, H * .68); ctx.stroke();
+}
+
+// ============================================================
+// LANSKAP
+// ============================================================
+function buildLandscape() {
+  const s = SEASONS[seasonIdx];
+  const gY = H * .68;
+  landscape = [];
+
+  const grassCount = Math.floor(W / 4);
+  for (let i = 0; i < grassCount; i++) {
+    landscape.push({
+      kind: 'grass', x: rnd(0, W), y: rnd(gY + 4, H),
+      h: rnd(6, 18), lean: rnd(-4, 4), ph: rnd(0, 10), color: pickGrass(s)
+    });
+  }
+
+  landscape.push(...SEASON_EXTRAS[s.key]());
+  landscape.sort((a, b) => (a.y || 0) - (b.y || 0));
+
+  butterflies = [];
+  const bn = s.key === 'semi' ? 6 : s.key === 'panas' ? 4 : 0;
+  for (let i = 0; i < bn; i++) {
+    butterflies.push({
+      x: rnd(0, W), y: rnd(H * .5, H * .7),
+      ph: rnd(0, 10), speed: rnd(.3, .8),
+      color: ['#f472b6', '#fde047', '#93c5fd', '#fb923c'][i % 4]
+    });
+  }
+
+  rainPuddles = [];
+  if (s.key === 'hujan') {
+    for (let i = 0; i < 6; i++) {
+      rainPuddles.push({ x: rnd(W * .05, W * .95), y: rnd(gY + 30, H - 20), rx: rnd(20, 50), ry: rnd(4, 8), ph: rnd(0, 10) });
+    }
+  }
+
+  fireflies = [];
+  if (s.key === 'hujan' || s.key === 'kemarau') {
+    const n = s.key === 'hujan' ? 14 : 10;
+    for (let i = 0; i < n; i++) {
+      fireflies.push({
+        x: rnd(0, W), y: rnd(H * .45, H * .85),
+        ph: rnd(0, 10), speed: rnd(.2, .5), glow: rnd(0, 6.28)
+      });
+    }
+  }
+
+  tractor = makeTractor(s);
+  spawnBees();
+  spawnFog();
+}
+
+function pickGrass(s) {
+  const map = {
+    semi: ['#4ade80', '#22c55e', '#86efac'],
+    panas: ['#a3e635', '#bef264', '#d9f99d'],
+    gugur: ['#a16207', '#ca8a04', '#d97706'],
+    dingin: ['#cbd5e1', '#94a3b8', '#e2e8f0'],
+    hujan: ['#3f6212', '#4d7c0f', '#365314'],
+    kemarau: ['#b45309', '#d97706', '#a16207']
+  };
+  const arr = map[s.key];
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+const SEASON_EXTRAS = {
+  semi: () => {
+    const out = [];
+    const cols = ['#f472b6', '#fde047', '#c084fc', '#fb7185', '#ffffff', '#60a5fa'];
+    for (let i = 0; i < 80; i++) out.push({ kind: 'flower', x: rnd(0, W), y: rnd(H * .7, H - 4), color: cols[i % cols.length], r: rnd(2.5, 4.5), ph: rnd(0, 10) });
+    for (let i = 0; i < 16; i++) out.push({ kind: 'sprout', x: rnd(0, W), y: rnd(H * .72, H - 4), h: rnd(8, 16), ph: rnd(0, 10) });
+    for (let i = 0; i < 4; i++) out.push({ kind: 'bush', x: rnd(W * .02, W * .3), y: rnd(H * .7, H * .78), r: rnd(14, 22), color: '#16a34a', flowers: true });
+    for (let i = 0; i < 2; i++) out.push({ kind: 'bigTree', x: W * (.42 + i * .07), y: H * .6, r: rnd(40, 52), color: '#22c55e', blossom: true });
+    out.push({ kind: 'house', x: W * .3, y: H * .62, w: 80, h: 56 });
+    out.push({ kind: 'fence', x: W * .02, y: H * .78, w: W * .3 });
+    out.push({ kind: 'pond', x: W * .58, y: H * .8, rx: 46, ry: 9 });
+    return out;
+  },
+  panas: () => {
+    const out = [];
+    for (let i = 0; i < 9; i++) out.push({ kind: 'rock', x: rnd(0, W), y: rnd(H * .72, H - 6), r: rnd(6, 13), c: ['#78716c', '#a8a29e', '#57534e'][i % 3] });
+    for (let i = 0; i < 16; i++) out.push({ kind: 'reed', x: rnd(0, W), y: rnd(H * .7, H - 4), h: rnd(20, 36), ph: rnd(0, 10) });
+    for (let i = 0; i < 3; i++) out.push({ kind: 'dryBush', x: rnd(W * .02, W * .95), y: rnd(H * .74, H - 8), r: rnd(10, 16) });
+    for (let i = 0; i < 2; i++) out.push({ kind: 'bigTree', x: W * (.42 + i * .08), y: H * .6, r: rnd(44, 56), color: '#65a30d', blossom: false });
+    out.push({ kind: 'house', x: W * .3, y: H * .62, w: 80, h: 56 });
+    out.push({ kind: 'fence', x: W * .6, y: H * .8, w: W * .3 });
+    out.push({ kind: 'river', y: H * .9, amp: 6 });
+    return out;
+  },
+  gugur: () => {
+    const out = [];
+    const cols = ['#f97316', '#dc2626', '#eab308', '#a16207', '#b45309'];
+    for (let i = 0; i < 90; i++) out.push({ kind: 'leafPile', x: rnd(0, W), y: rnd(H * .7, H - 3), c: cols[i % cols.length], rot: rnd(0, 6), s: rnd(3, 6) });
+    for (let i = 0; i < 3; i++) out.push({ kind: 'hay', x: rnd(W * .25, W * .65), y: rnd(H * .78, H - 12) });
+    for (let i = 0; i < 4; i++) out.push({ kind: 'bush', x: rnd(W * .02, W * .3), y: rnd(H * .7, H * .8), r: rnd(14, 22), color: '#b45309', flowers: false });
+    for (let i = 0; i < 2; i++) out.push({ kind: 'bigTree', x: W * (.42 + i * .07), y: H * .6, r: rnd(40, 52), color: '#ea580c', blossom: false });
+    out.push({ kind: 'house', x: W * .3, y: H * .62, w: 80, h: 56 });
+    out.push({ kind: 'fence', x: W * .02, y: H * .78, w: W * .3 });
+    out.push({ kind: 'lamp', x: W * .52, y: H * .8, lit: true });
+    out.push({ kind: 'lamp', x: W * .9, y: H * .78, lit: true });
+    return out;
+  },
+  dingin: () => {
+    const out = [];
+    for (let i = 0; i < 40; i++) out.push({ kind: 'snowSpot', x: rnd(0, W), y: rnd(H * .7, H - 2), r: rnd(6, 16) });
+    for (let i = 0; i < 4; i++) out.push({ kind: 'bush', x: rnd(W * .02, W * .3), y: rnd(H * .7, H * .8), r: rnd(14, 22), color: '#e2e8f0', frosted: true });
+    for (let i = 0; i < 10; i++) out.push({ kind: 'track', x: rnd(W * .4, W * .9), y: rnd(H * .75, H - 6), dir: Math.random() > .5 ? 1 : -1 });
+    for (let i = 0; i < 2; i++) out.push({ kind: 'bigTree', x: W * (.42 + i * .07), y: H * .6, r: rnd(40, 52), color: '#e2e8f0', frosted: true });
+    out.push({ kind: 'house', x: W * .3, y: H * .62, w: 80, h: 56, snow: true });
+    out.push({ kind: 'fence', x: W * .02, y: H * .78, w: W * .3, snow: true });
+    out.push({ kind: 'lamp', x: W * .52, y: H * .8, lit: true, snow: true });
+    out.push({ kind: 'lamp', x: W * .9, y: H * .78, lit: true, snow: true });
+    return out;
+  },
+  hujan: () => {
+    const out = [];
+    for (let i = 0; i < 6; i++) out.push({ kind: 'worm', x: rnd(0, W), y: rnd(H * .74, H - 6), ph: rnd(0, 10) });
+    for (let i = 0; i < 6; i++) out.push({ kind: 'rock', x: rnd(0, W), y: rnd(H * .72, H - 6), r: rnd(6, 12), c: '#334155' });
+    for (let i = 0; i < 3; i++) out.push({ kind: 'bush', x: rnd(W * .02, W * .3), y: rnd(H * .7, H * .8), r: rnd(16, 24), color: '#14532d', flowers: false });
+    for (let i = 0; i < 2; i++) out.push({ kind: 'bigTree', x: W * (.42 + i * .07), y: H * .6, r: rnd(44, 54), color: '#14532d', blossom: false });
+    out.push({ kind: 'house', x: W * .3, y: H * .62, w: 80, h: 56, wet: true });
+    out.push({ kind: 'fence', x: W * .6, y: H * .78, w: W * .3, wet: true });
+    out.push({ kind: 'river', y: H * .9, amp: 10, muddy: true });
+    out.push({ kind: 'lamp', x: W * .52, y: H * .8, lit: true });
+    out.push({ kind: 'lamp', x: W * .9, y: H * .78, lit: true });
+    return out;
+  },
+  kemarau: () => {
+    const out = [];
+    for (let i = 0; i < 12; i++) out.push({ kind: 'crack', x: rnd(0, W), y: rnd(H * .72, H - 6), len: rnd(14, 30), ang: rnd(-.4, .4) });
+    for (let i = 0; i < 2; i++) out.push({ kind: 'tumble', x: rnd(W * .1, W * .9), y: rnd(H * .8, H - 10), r: rnd(9, 13), ph: rnd(0, 10) });
+    for (let i = 0; i < 4; i++) out.push({ kind: 'dryBush', x: rnd(W * .02, W * .95), y: rnd(H * .74, H - 8), r: rnd(10, 16) });
+    for (let i = 0; i < 2; i++) out.push({ kind: 'rock', x: rnd(W * .1, W * .9), y: rnd(H * .78, H - 8), r: rnd(16, 24), c: '#92400e' });
+    for (let i = 0; i < 2; i++) out.push({ kind: 'bigTree', x: W * (.42 + i * .07), y: H * .6, r: rnd(30, 38), color: '#a16207', dead: true });
+    out.push({ kind: 'house', x: W * .3, y: H * .62, w: 80, h: 56, dusty: true });
+    return out;
+  }
+};
+
+function drawLandscape(s) {
+  ctx.fillStyle = shade(s.ground, -.12);
+  ctx.beginPath();
+  ctx.moveTo(W * .08, H); ctx.lineTo(W * .18, H * .68);
+  ctx.lineTo(W * .26, H * .68); ctx.lineTo(W * .2, H);
+  ctx.closePath(); ctx.fill();
+
+  if (s.key === 'hujan') {
+    rainPuddles.forEach(p => {
+      const g = ctx.createLinearGradient(p.x, p.y - p.ry, p.x, p.y + p.ry);
+      g.addColorStop(0, '#bae6fd');
+      g.addColorStop(1, '#1e3a8a');
+      ctx.fillStyle = g;
+      ctx.globalAlpha = .75;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      const ripple = (t * .03 + p.ph) % 1;
+      ctx.strokeStyle = `rgba(255,255,255,${.5 * (1 - ripple)})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx * ripple, p.ry * ripple, 0, 0, Math.PI * 2); ctx.stroke();
+    });
+  }
+
+  landscape.forEach(e => drawLandscapeItem(e, s));
+
+  butterflies.forEach(b => {
+    b.x += Math.sin(t * .02 + b.ph) * b.speed;
+    b.y += Math.cos(t * .03 + b.ph) * .3;
+    if (b.x > W) b.x = 0;
+    if (b.x < 0) b.x = W;
+    const wing = Math.abs(Math.sin(t * .2 + b.ph));
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.fillStyle = b.color;
+    ctx.beginPath(); ctx.ellipse(-3, 0, 4 * wing + 1, 4, .3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(3, 0, 4 * wing + 1, 4, -.3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.fillRect(-.5, -3, 1, 6);
+    ctx.restore();
+  });
+}
+
+function drawLandscapeItem(e, s) {
+  switch (e.kind) {
+    case 'grass': {
+      const sway = Math.sin(t * .02 + e.ph) * 2;
+      ctx.strokeStyle = e.color; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.quadraticCurveTo(e.x + e.lean * .5, e.y - e.h * .6, e.x + e.lean + sway, e.y - e.h);
+      ctx.stroke();
+      break;
+    }
+    case 'flower': {
+      const sway = Math.sin(t * .03 + e.ph) * 1.5;
+      ctx.strokeStyle = '#15803d'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + sway, e.y - 10); ctx.stroke();
+      ctx.fillStyle = e.color;
+      for (let k = 0; k < 5; k++) {
+        const a = k / 5 * Math.PI * 2;
+        ctx.beginPath(); ctx.arc(e.x + sway + Math.cos(a) * e.r, e.y - 10 + Math.sin(a) * e.r, e.r * .55, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath(); ctx.arc(e.x + sway, e.y - 10, 1.4, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'sprout': {
+      const sway = Math.sin(t * .025 + e.ph) * 1.5;
+      ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.quadraticCurveTo(e.x, e.y - e.h * .6, e.x + sway, e.y - e.h); ctx.stroke();
+      ctx.fillStyle = '#86efac';
+      ctx.beginPath(); ctx.ellipse(e.x + sway - 3, e.y - e.h * .6, 4, 2, -.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(e.x + sway + 3, e.y - e.h * .8, 4, 2, .5, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'reed': {
+      const sway = Math.sin(t * .02 + e.ph) * 3;
+      ctx.strokeStyle = '#a16207'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.quadraticCurveTo(e.x + sway * .5, e.y - e.h * .5, e.x + sway, e.y - e.h); ctx.stroke();
+      ctx.fillStyle = '#78350f';
+      ctx.beginPath(); ctx.ellipse(e.x + sway, e.y - e.h, 1.8, 4, 0, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'bush': {
+      ctx.fillStyle = 'rgba(0,0,0,.2)';
+      ctx.beginPath(); ctx.ellipse(e.x, e.y + 2, e.r * 1.1, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = e.color;
+      ctx.beginPath(); ctx.arc(e.x - e.r * .5, e.y - e.r * .4, e.r * .7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.x + e.r * .5, e.y - e.r * .3, e.r * .7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.x, e.y - e.r * .7, e.r * .8, 0, Math.PI * 2); ctx.fill();
+      if (e.flowers) {
+        ctx.fillStyle = '#fbcfe8';
+        for (let k = 0; k < 6; k++) {
+          ctx.beginPath();
+          ctx.arc(e.x + Math.cos(k) * e.r * .6, e.y - e.r * .5 + Math.sin(k * 2) * e.r * .4, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      if (e.frosted) {
+        ctx.fillStyle = 'rgba(255,255,255,.8)';
+        ctx.beginPath(); ctx.arc(e.x, e.y - e.r * 1.2, e.r * .5, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'bigTree': {
+      const sway = Math.sin(t * .012 + e.x) * 2;
+      ctx.fillStyle = 'rgba(0,0,0,.2)';
+      ctx.beginPath(); ctx.ellipse(e.x, e.y + 4, e.r * .7, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#78350f';
+      ctx.beginPath();
+      ctx.moveTo(e.x - 5, e.y + 2); ctx.lineTo(e.x - 3, e.y - e.r * .9);
+      ctx.lineTo(e.x + 3, e.y - e.r * .9); ctx.lineTo(e.x + 5, e.y + 2);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#78350f'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(e.x, e.y - e.r * .6); ctx.lineTo(e.x - 10, e.y - e.r * .9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(e.x, e.y - e.r * .6); ctx.lineTo(e.x + 10, e.y - e.r * .9); ctx.stroke();
+      if (e.dead) {
+        ctx.strokeStyle = '#a16207'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(e.x - 12, e.y - e.r * .9); ctx.lineTo(e.x - 20, e.y - e.r * 1.2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(e.x + 12, e.y - e.r * .9); ctx.lineTo(e.x + 22, e.y - e.r * 1.1); ctx.stroke();
+        break;
+      }
+      const cy = e.y - e.r * 1.2;
+      ctx.fillStyle = e.color;
+      ctx.beginPath(); ctx.arc(e.x + sway, cy, e.r * .7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.x - e.r * .45 + sway, cy + e.r * .25, e.r * .55, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.x + e.r * .45 + sway, cy + e.r * .25, e.r * .55, 0, Math.PI * 2); ctx.fill();
+      if (e.blossom) {
+        ctx.fillStyle = '#fbcfe8';
+        for (let k = 0; k < 14; k++) {
+          const a = k * 2.4;
+          ctx.beginPath();
+          ctx.arc(e.x + sway + Math.cos(a) * e.r * .6, cy + Math.sin(a * 1.3) * e.r * .5, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      if (e.frosted) {
+        ctx.fillStyle = 'rgba(255,255,255,.9)';
+        ctx.beginPath(); ctx.arc(e.x + sway, cy - e.r * .4, e.r * .5, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'house': {
+      const x = e.x, y = e.y, w = e.w, h = e.h;
+      ctx.fillStyle = 'rgba(0,0,0,.2)';
+      ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + 2, w / 2 + 6, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = e.dusty ? '#e7d6b5' : '#fef3c7';
+      ctx.fillRect(x, y + 20, w, h - 20);
+      ctx.fillStyle = e.dusty ? '#a16207' : '#b45309';
+      ctx.beginPath();
+      ctx.moveTo(x - 6, y + 22); ctx.lineTo(x + w / 2, y - 6); ctx.lineTo(x + w + 6, y + 22);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#7c2d12';
+      ctx.fillRect(x + w / 2 - 7, y + h - 22, 14, 22);
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(x + 10, y + 30, 12, 12);
+      ctx.fillRect(x + w - 22, y + 30, 12, 12);
+      ctx.strokeStyle = '#7c2d12'; ctx.lineWidth = 1;
+      ctx.strokeRect(x + 10, y + 30, 12, 12);
+      ctx.strokeRect(x + w - 22, y + 30, 12, 12);
+      if (e.snow) {
+        ctx.fillStyle = 'rgba(255,255,255,.95)';
+        ctx.beginPath();
+        ctx.moveTo(x - 6, y + 22); ctx.lineTo(x + w / 2, y - 6); ctx.lineTo(x + w + 6, y + 22);
+        ctx.lineTo(x + w + 6, y + 14); ctx.lineTo(x + w / 2, y - 14); ctx.lineTo(x - 6, y + 14);
+        ctx.closePath(); ctx.fill();
+        ctx.fillRect(x + 4, y + 14, w - 8, 4);
+      }
+      if (e.wet) {
+        ctx.fillStyle = 'rgba(125,211,252,.4)';
+        ctx.fillRect(x, y + 20, w, 3);
+      }
+      ctx.fillStyle = '#7f1d1d';
+      ctx.fillRect(x + w - 16, y - 2, 6, 14);
+      if (s.key !== 'panas' && s.key !== 'kemarau') {
+        ctx.fillStyle = 'rgba(200,200,200,.5)';
+        const pu = (t * .5) % 40;
+        ctx.beginPath(); ctx.arc(x + w - 13, y - 6 - pu * .4, 3 + pu * .05, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'pond': {
+      ctx.fillStyle = 'rgba(0,0,0,.15)';
+      ctx.beginPath(); ctx.ellipse(e.x, e.y + 2, e.rx, e.ry, 0, 0, Math.PI * 2); ctx.fill();
+      const g = ctx.createLinearGradient(e.x, e.y - e.ry, e.x, e.y + e.ry);
+      g.addColorStop(0, '#7dd3fc'); g.addColorStop(1, '#0369a1');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(e.x, e.y, e.rx, e.ry, 0, 0, Math.PI * 2); ctx.fill();
+      drawWaterShimmer(e.x, e.y, e.rx * .8, e.ry);
+      ctx.fillStyle = '#4ade80';
+      ctx.beginPath(); ctx.ellipse(e.x - 20, e.y + 2, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(e.x + 14, e.y - 2, 4, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fbcfe8';
+      ctx.beginPath(); ctx.arc(e.x + 14, e.y - 5, 2, 0, Math.PI * 2); ctx.fill();
+      const rp = (t * .02) % 1;
+      ctx.strokeStyle = `rgba(255,255,255,${.6 * (1 - rp)})`;
+      ctx.beginPath(); ctx.ellipse(e.x, e.y, e.rx * rp, e.ry * rp, 0, 0, Math.PI * 2); ctx.stroke();
+      break;
+    }
+    case 'river': {
+      const y = e.y;
+      ctx.fillStyle = e.muddy ? '#78350f' : '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      for (let x = 0; x <= W; x += 20) ctx.lineTo(x, y + Math.sin(x * .02 + t * .03) * e.amp * .3);
+      ctx.lineTo(W, y + 14);
+      for (let x = W; x >= 0; x -= 20) ctx.lineTo(x, y + 14 + Math.sin(x * .02 + t * .03 + 1) * e.amp * .3);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1;
+      for (let i = 0; i < 6; i++) {
+        const xx = ((i * 180 + t * 1.2) % (W + 60)) - 30;
+        ctx.beginPath(); ctx.moveTo(xx, y + 5); ctx.lineTo(xx + 14, y + 5); ctx.stroke();
+      }
+      break;
+    }
+    case 'lamp': drawLamp(e); break;
+    case 'rock': {
+      ctx.fillStyle = 'rgba(0,0,0,.2)';
+      ctx.beginPath(); ctx.ellipse(e.x, e.y + 2, e.r * 1.1, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = e.c;
+      ctx.beginPath();
+      ctx.moveTo(e.x - e.r, e.y);
+      ctx.quadraticCurveTo(e.x - e.r * .8, e.y - e.r * 1.1, e.x, e.y - e.r);
+      ctx.quadraticCurveTo(e.x + e.r * .9, e.y - e.r * 1.0, e.x + e.r, e.y);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.2)';
+      ctx.beginPath(); ctx.ellipse(e.x - e.r * .3, e.y - e.r * .6, e.r * .35, e.r * .2, -.4, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'dryBush': {
+      ctx.strokeStyle = '#78350f'; ctx.lineWidth = 1.2;
+      for (let k = -3; k <= 3; k++) {
+        ctx.beginPath();
+        ctx.moveTo(e.x, e.y);
+        ctx.quadraticCurveTo(e.x + k * 3, e.y - e.r * .6, e.x + k * 5, e.y - e.r * (.7 + Math.abs(k) * .1));
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'leafPile': {
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      ctx.rotate(e.rot);
+      ctx.fillStyle = e.c;
+      ctx.beginPath(); ctx.ellipse(0, 0, e.s * 1.4, e.s * .6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = .6;
+      ctx.beginPath(); ctx.moveTo(-e.s, 0); ctx.lineTo(e.s, 0); ctx.stroke();
+      ctx.restore();
+      break;
+    }
+    case 'hay': {
+      ctx.fillStyle = 'rgba(0,0,0,.2)';
+      ctx.beginPath(); ctx.ellipse(e.x, e.y + 4, 22, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#eab308';
+      ctx.beginPath(); ctx.ellipse(e.x, e.y - 8, 18, 12, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#a16207'; ctx.lineWidth = 1;
+      for (let k = -2; k <= 2; k++) {
+        ctx.beginPath(); ctx.moveTo(e.x + k * 5, e.y - 18); ctx.lineTo(e.x + k * 5 + 2, e.y + 2); ctx.stroke();
+      }
+      break;
+    }
+    case 'snowSpot': {
+      ctx.fillStyle = 'rgba(255,255,255,.9)';
+      ctx.beginPath(); ctx.ellipse(e.x, e.y, e.r, e.r * .35, 0, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'track': {
+      ctx.fillStyle = 'rgba(71,85,105,.45)';
+      for (let k = 0; k < 4; k++) {
+        ctx.beginPath();
+        ctx.ellipse(e.x + k * 14 * e.dir, e.y + (k % 2) * 4, 3, 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'worm': {
+      const wig = Math.sin(t * .05 + e.ph) * 2;
+      ctx.strokeStyle = '#f9a8d4'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.quadraticCurveTo(e.x + 5, e.y + wig, e.x + 10, e.y); ctx.stroke();
+      break;
+    }
+    case 'crack': {
+      ctx.strokeStyle = 'rgba(92,46,15,.55)'; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(e.x + Math.cos(e.ang) * e.len * .5, e.y + Math.sin(e.ang) * e.len * .5);
+      ctx.lineTo(e.x + Math.cos(e.ang) * e.len, e.y + Math.sin(e.ang) * e.len * .2);
+      ctx.stroke();
+      break;
+    }
+    case 'tumble': {
+      e.x += Math.sin(t * .01 + e.ph) * .2 + .08;
+      if (e.x > W + 20) e.x = -20;
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      ctx.rotate(t * .04);
+      ctx.strokeStyle = '#a16207'; ctx.lineWidth = 1.2;
+      for (let k = 0; k < 8; k++) {
+        const a = k / 8 * Math.PI * 2;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * e.r, Math.sin(a) * e.r); ctx.stroke();
+      }
+      ctx.restore();
+      break;
+    }
+    case 'fence': {
+      for (let x = e.x; x <= e.x + e.w; x += 26) {
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(x - 2, e.y - 20, 4, 24);
+      }
+      ctx.fillStyle = e.wet ? '#451a03' : '#92400e';
+      ctx.fillRect(e.x, e.y - 14, e.w, 3);
+      ctx.fillRect(e.x, e.y - 6, e.w, 3);
+      if (e.snow) {
+        ctx.fillStyle = 'rgba(255,255,255,.9)';
+        ctx.fillRect(e.x, e.y - 17, e.w, 3);
+      }
+      break;
+    }
+  }
+}
+
+function drawLamp(e) {
+  const x = e.x, y = e.y;
+  ctx.fillStyle = 'rgba(0,0,0,.2)';
+  ctx.beginPath(); ctx.ellipse(x, y + 2, 6, 2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#374151';
+  ctx.fillRect(x - 2, y - 56, 4, 58);
+  ctx.fillRect(x - 5, y - 2, 10, 3);
+  ctx.fillRect(x, y - 56, 10, 2);
+  ctx.fillStyle = '#1f2937';
+  ctx.fillRect(x + 6, y - 58, 10, 4);
+  const nt = nightAmount();
+  const on = e.lit || nt > .5;
+  const flick = on ? (0.9 + Math.sin(t * .08 + x) * .05) : 0;
+  if (on) {
+    const g = ctx.createRadialGradient(x + 11, y - 52, 2, x + 11, y - 52, 46);
+    g.addColorStop(0, `rgba(254,240,138,${.55 * flick})`);
+    g.addColorStop(1, 'rgba(254,240,138,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x + 11, y - 52, 46, 0, Math.PI * 2); ctx.fill();
+    const gg = ctx.createRadialGradient(x + 11, y - 2, 2, x + 11, y - 2, 40);
+    gg.addColorStop(0, `rgba(254,240,138,${.2 * flick})`);
+    gg.addColorStop(1, 'rgba(254,240,138,0)');
+    ctx.fillStyle = gg;
+    ctx.beginPath(); ctx.ellipse(x + 11, y - 2, 40, 10, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = on ? `rgba(254,252,232,${flick})` : '#94a3b8';
+  ctx.fillRect(x + 8, y - 54, 6, 3);
+  ctx.fillStyle = '#111827';
+  ctx.beginPath(); ctx.moveTo(x + 5, y - 58); ctx.lineTo(x + 11, y - 62); ctx.lineTo(x + 17, y - 58); ctx.fill();
+  if (e.snow) {
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.moveTo(x + 5, y - 58); ctx.lineTo(x + 11, y - 62); ctx.lineTo(x + 17, y - 58); ctx.fill();
+    ctx.fillRect(x + 6, y - 60, 10, 2);
+  }
+}
+
+// ============================================================
+// KUNANG-KUNANG
+// ============================================================
+function drawFireflies() {
+  const s = SEASONS[seasonIdx];
+  if (!(s.key === 'hujan' || s.key === 'kemarau')) return;
+  const nt = nightAmount();
+  fireflies.forEach(f => {
+    f.x += Math.sin(t * .02 + f.ph) * f.speed;
+    f.y += Math.cos(t * .025 + f.ph) * f.speed * .6;
+    if (f.x < 0) f.x = W;
+    if (f.x > W) f.x = 0;
+    if (f.y < H * .4) f.y = H * .85;
+    if (f.y > H * .9) f.y = H * .45;
+    const b = (Math.sin(t * .08 + f.glow) + 1) / 2 * Math.max(.35, nt);
+    const color = s.key === 'hujan' ? '190,255,120' : '253,224,71';
+    const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 10);
+    g.addColorStop(0, `rgba(${color},${.9 * b})`);
+    g.addColorStop(1, `rgba(${color},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(f.x, f.y, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = `rgba(255,255,220,${b})`;
+    ctx.beginPath(); ctx.arc(f.x, f.y, 1.4, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+// ============================================================
+// TRAKTOR
+// ============================================================
+function makeTractor(s) {
+  return {
+    x: -90, y: H * .8, dir: 1, speed: .6, honk: 0,
+    color: s.tractorColor, trailType: s.tractorTrail, dust: s.dust,
+    wheelSpin: 0, bounce: 0
+  };
+}
+function updateTractor() {
+  if (!tractor) return;
+  const s = SEASONS[seasonIdx];
+  const spd = tractor.speed * (s.key === 'hujan' ? .7 : s.key === 'dingin' ? .8 : 1);
+  tractor.x += tractor.dir * spd;
+  tractor.wheelSpin += tractor.dir * spd * .15;
+  tractor.bounce = Math.sin(t * .2) * (s.key === 'hujan' ? 1.6 : .8);
+  if (tractor.honk > 0) tractor.honk--;
+  if (tractor.x > W + 120) tractor.dir = -1;
+  if (tractor.x < -120) tractor.dir = 1;
+
+  if (t % 4 === 0) {
+    trailParticles.push({
+      x: tractor.x - tractor.dir * 40, y: tractor.y + 16 + rnd(-2, 2),
+      vx: -tractor.dir * .2 + rnd(-.2, .2),
+      vy: tractor.trailType === 'dust' ? -.3 : tractor.trailType === 'mud' ? .1 : -.1,
+      life: 120, type: tractor.trailType
+    });
+  }
+  trailParticles = trailParticles.filter(p => p.life > 0);
+  trailParticles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
+}
+function drawTrail() {
+  trailParticles.forEach(p => {
+    const a = p.life / 120;
+    ctx.save();
+    if (p.type === 'dust') {
+      ctx.fillStyle = `rgba(217,160,80,${a * .45})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3 + (120 - p.life) * .04, 0, Math.PI * 2); ctx.fill();
+    } else if (p.type === 'soil') {
+      ctx.fillStyle = `rgba(120,53,15,${a * .6})`;
+      ctx.fillRect(p.x, p.y, 3, 2);
+    } else if (p.type === 'leaves') {
+      ctx.fillStyle = `rgba(234,88,12,${a * .8})`;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, 3, 1.5, p.life * .1, 0, Math.PI * 2); ctx.fill();
+    } else if (p.type === 'snow') {
+      ctx.fillStyle = `rgba(255,255,255,${a * .9})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill();
+    } else if (p.type === 'mud') {
+      ctx.fillStyle = `rgba(68,40,15,${a * .7})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  });
+}
+function drawWheel(cx, cy, r, spin, s) {
+  ctx.fillStyle = s.key === 'dingin' ? '#e2e8f0' : '#1f2937';
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#9ca3af';
+  ctx.beginPath(); ctx.arc(cx, cy, r * .5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#374151'; ctx.lineWidth = 2;
+  for (let i = 0; i < 4; i++) {
+    const a = spin + i * Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * r * .5, cy + Math.sin(a) * r * .5);
+    ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    ctx.stroke();
+  }
+  if (s.key === 'hujan') {
+    ctx.fillStyle = 'rgba(68,40,15,.6)';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  }
+}
+function drawTractor() {
+  if (!tractor) return;
+  const tr = tractor;
+  const s = SEASONS[seasonIdx];
+  const x = tr.x, y = tr.y + tr.bounce;
+
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.ellipse(x, tr.y + 22, 36, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(tr.dir, 1);
+
+  ctx.fillStyle = tr.color;
+  ctx.fillRect(-26, -14, 46, 20);
+  ctx.fillStyle = shade(tr.color, .15);
+  ctx.fillRect(12, -2, 14, 10);
+  ctx.fillStyle = shade(tr.color, -.1);
+  ctx.fillRect(-22, -32, 26, 20);
+  ctx.fillStyle = s.key === 'dingin' ? '#e0f2fe' : s.key === 'hujan' ? '#94a3b8' : '#bae6fd';
+  ctx.fillRect(-18, -28, 18, 12);
+  if (s.key === 'dingin') {
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.fillRect(-22, -34, 26, 4);
+  }
+  ctx.fillStyle = '#374151';
+  ctx.fillRect(18, -26, 3, 14);
+  ctx.fillStyle = 'rgba(100,100,100,.5)';
+  ctx.beginPath(); ctx.arc(19.5, -28 - (t % 40) * .2, 3 + (t % 40) * .05, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = tr.honk > 0 || s.key === 'hujan' ? '#fde047' : '#fef9c3';
+  ctx.beginPath(); ctx.arc(26, -4, 2.5, 0, Math.PI * 2); ctx.fill();
+
+  drawWheel(-14, 10, 14, tr.wheelSpin, s);
+  drawWheel(20, 12, 9, tr.wheelSpin, s);
+
+  ctx.fillStyle = shade(tr.color, -.2);
+  ctx.beginPath(); ctx.arc(-14, 10, 15, Math.PI, 0); ctx.fill();
+
+  ctx.fillStyle = '#1e3a8a';
+  ctx.fillRect(-14, -36, 8, 10);
+  ctx.fillStyle = '#fcd34d';
+  ctx.beginPath(); ctx.arc(-10, -40, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7c2d12';
+  ctx.fillRect(-14, -44, 8, 3);
+
+  if (s.key === 'semi') {
+    ctx.fillStyle = '#fbcfe8';
+    ctx.beginPath(); ctx.arc(-30, -26, 2, 0, Math.PI * 2); ctx.fill();
+  }
+  if (s.key === 'hujan') {
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-22, -34); ctx.lineTo(-30, -20); ctx.stroke();
+  }
+  if (s.key === 'kemarau') {
+    ctx.fillStyle = '#fde68a';
+    ctx.fillRect(-16, -46, 12, 2);
+  }
+  if (s.key === 'gugur') {
+    ctx.fillStyle = '#ea580c';
+    ctx.beginPath(); ctx.arc(-6, -20, 2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  if (tr.honk > 0) {
+    ctx.strokeStyle = 'rgba(253,224,71,.7)';
+    ctx.lineWidth = 2;
+    for (let i = 1; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.arc(x + tr.dir * 34, y - 14, 4 + i * 5 + (30 - tr.honk) * .2, -.5, .5);
+      ctx.stroke();
+    }
+  }
+}
+function hitTractor(px, py) {
+  if (!tractor) return false;
+  return Math.abs(px - tractor.x) < 40 && Math.abs(py - (tractor.y - 12)) < 40;
+}
+
+// ============================================================
+// POHON APEL
+// ============================================================
+function drawOrchard(s) {
+  const trees = orchardTrees();
+  trees.forEach((tr, i) => {
+    const sway = Math.sin(t * .015 + i) * 1.5;
+    ctx.fillStyle = 'rgba(0,0,0,.2)';
+    ctx.beginPath(); ctx.ellipse(tr.x, tr.baseY + 8, 36, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#78350f';
+    ctx.fillRect(tr.x - 4, tr.baseY - 50, 8, 60);
+    ctx.fillStyle = s.apple.leaf;
+    ctx.beginPath(); ctx.arc(tr.x + sway, tr.crownY, 38, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(tr.x - 22 + sway, tr.crownY + 12, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(tr.x + 22 + sway, tr.crownY + 12, 26, 0, Math.PI * 2); ctx.fill();
+    if (s.key !== 'dingin') {
+      [[-18, -16], [6, -32], [20, -4], [-8, -2], [-30, 0]].forEach(([dx, dy]) => {
+        ctx.fillStyle = s.key === 'semi' ? '#fbcfe8' : s.apple.fruitColor;
+        ctx.beginPath(); ctx.arc(tr.x + dx + sway, tr.crownY + dy, s.key === 'semi' ? 4 : 5, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+  });
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.font = '12px system-ui';
+  ctx.fillText(s.apple.name, W * .72 + 10, H * .66 - 118);
+}
+
+// ============================================================
+// APEL BERJATUHAN
+// ============================================================
+function spawnFallingApple() {
+  const s = SEASONS[seasonIdx];
+  const f = s.fall;
+  const trees = orchardTrees();
+  const tree = trees[Math.floor(Math.random() * trees.length)];
+  fallingApples.push({
+    x: tree.x + (Math.random() - .5) * tree.crownR * 1.6,
+    y: tree.crownY + (Math.random() - .5) * 20,
+    vx: (Math.random() - .5) * .3,
+    vy: 0,
+    rot: Math.random() * Math.PI,
+    vr: (Math.random() - .5) * .08,
+    type: f.type,
+    fruit: f.fruit,
+    color: f.color,
+    size: f.size * (.85 + Math.random() * .3),
+    bounce: f.bounce || 0,
+    wet: !!f.wet,
+    wrinkled: !!f.wrinkled,
+    state: 'falling',
+    restT: 0,
+    alpha: 1,
+    groundY: H * .7 + Math.random() * 30
+  });
+}
+
+function updateFallingApples() {
+  const s = SEASONS[seasonIdx];
+  if (Math.random() < s.fall.rate) spawnFallingApple();
+  const wind = Math.sin(t * .005) * .03;
+
+  fallingApples.forEach(a => {
+    if (a.state === 'falling') {
+      a.vy += .18;
+      a.vx += wind * .1;
+      if (a.type === 'petal') {
+        a.vy = Math.min(a.vy, .9);
+        a.x += Math.sin(t * .05 + a.rot) * .6;
+      }
+      a.x += a.vx;
+      a.y += a.vy;
+      a.rot += a.vr;
+      if (a.y >= a.groundY) {
+        a.y = a.groundY;
+        if (a.type === 'petal') {
+          a.state = 'ground';
+        } else if (a.bounce > 0 && Math.abs(a.vy) > 1.5) {
+          a.vy = -a.vy * a.bounce;
+          a.vx *= .6;
+          thud(.12, 1 + Math.random() * .2);
+        } else {
+          a.state = 'ground';
+          if (a.vy > 1) thud(.14, .9 + Math.random() * .2);
+        }
+      }
+    } else if (a.state === 'ground' || a.state === 'rolling') {
+      a.restT++;
+      if (a.state === 'rolling') {
+        a.x += a.vx;
+        a.vx *= .95;
+        if (Math.abs(a.vx) < .05) a.state = 'ground';
+      }
+      animals.forEach(an => {
+        if (an.state === 'inside' || an.state === 'entering' || an.state === 'exiting') return;
+        if (Math.abs(an.x - a.x) < 14 && Math.abs(an.y - a.groundY) < 16 && a.state === 'ground') {
+          a.vx = an.dir * (1 + Math.random());
+          a.state = 'rolling';
+          a.restT = 0;
+        }
+      });
+      if (a.restT > 1200) a.alpha = Math.max(0, a.alpha - .004);
+    } else if (a.state === 'collected') {
+      a.alpha -= .08;
+    }
+  });
+  fallingApples = fallingApples.filter(a => a.alpha > 0 && a.x > -20 && a.x < W + 20);
+}
+
+function drawFallingApples() {
+  fallingApples.forEach(a => {
+    ctx.save();
+    ctx.globalAlpha = a.alpha;
+    ctx.translate(a.x, a.y);
+    if (a.type === 'petal') {
+      ctx.rotate(a.rot);
+      ctx.fillStyle = a.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, a.size * 1.2, a.size * .6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.beginPath();
+      ctx.ellipse(-a.size * .2, -a.size * .1, a.size * .5, a.size * .2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      if (a.state !== 'falling') {
+        ctx.fillStyle = 'rgba(0,0,0,.25)';
+        ctx.beginPath();
+        ctx.ellipse(0, 4, a.size * 1.1, a.size * .35, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.rotate(a.rot);
+      drawApple(a);
+    }
+    ctx.restore();
+  });
+}
+
+function drawApple(a) {
+  const r = a.size;
+  ctx.fillStyle = a.color;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * .5);
+  ctx.bezierCurveTo(r * 1.1, -r * 1.2, r * 1.3, r * .6, 0, r * .8);
+  ctx.bezierCurveTo(-r * 1.3, r * .6, -r * 1.1, -r * 1.2, 0, -r * .5);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.35)';
+  ctx.beginPath();
+  ctx.ellipse(-r * .4, -r * .1, r * .25, r * .45, .3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.2)';
+  ctx.beginPath(); ctx.ellipse(0, -r * .5, r * .3, r * .12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#5b3a1a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, -r * .5); ctx.lineTo(1, -r * 1); ctx.stroke();
+  if (!a.wrinkled) {
+    ctx.fillStyle = '#4ade80';
+    ctx.beginPath(); ctx.ellipse(r * .35, -r * .9, r * .35, r * .15, -.4, 0, Math.PI * 2); ctx.fill();
+  }
+  if (a.wet && a.state !== 'falling') {
+    ctx.fillStyle = 'rgba(125,211,252,.8)';
+    ctx.beginPath(); ctx.arc(r * .4, -r * .2, 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-r * .5, r * .3, 1.2, 0, Math.PI * 2); ctx.fill();
+  }
+  if (a.wrinkled) {
+    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-r * .3, 0); ctx.lineTo(-r * .1, r * .2); ctx.lineTo(-r * .3, r * .4);
+    ctx.moveTo(r * .2, -r * .1); ctx.lineTo(r * .4, r * .1);
+    ctx.stroke();
+  }
+}
+
+function hitApple(px, py) {
+  for (let i = fallingApples.length - 1; i >= 0; i--) {
+    const a = fallingApples[i];
+    if (a.type === 'petal' || a.state === 'falling' || a.state === 'collected') continue;
+    if (Math.hypot(px - a.x, py - a.y) < a.size + 8) return a;
+  }
+  return null;
+}
+
+// ============================================================
+// PARTIKEL
+// ============================================================
+function newParticle(type, randomY = false) {
+  return {
+    x: Math.random() * W,
+    y: randomY ? Math.random() * H : -10,
+    vx: (Math.random() - .5) * .6,
+    vy: type === 'rain' ? 8 + Math.random() * 4
+      : type === 'snow' ? .8 + Math.random() * .8
+      : type === 'dust' ? .3 : 1 + Math.random() * .8,
+    r: type === 'rain' ? 1.2 : 2 + Math.random() * 2,
+    rot: Math.random() * Math.PI,
+    type
+  };
+}
+function spawnParticles() {
+  const s = SEASONS[seasonIdx];
+  particles = [];
+  const n = s.particle === 'rain' ? 120 : 60;
+  for (let i = 0; i < n; i++) particles.push(newParticle(s.particle, true));
+}
+function drawParticles(s) {
+  particles.forEach(p => {
+    p.x += p.vx + Math.sin(t * .02 + p.rot) * .3;
+    p.y += p.vy;
+    p.rot += .05;
+    if (p.y > H + 10 || p.x < -10 || p.x > W + 10) Object.assign(p, newParticle(p.type));
+    ctx.fillStyle = s.particleColor; ctx.strokeStyle = s.particleColor;
+    if (p.type === 'rain') {
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 2, p.y + 10); ctx.stroke();
+    } else if (p.type === 'petal' || p.type === 'leaf') {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.6, p.r, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+}
+
+// ============================================================
+// BARN & PINTU
+// ============================================================
+function requestDoorOpen(holdFrames = 90) {
+  doorTarget = 1;
+  doorHoldUntil = Math.max(doorHoldUntil, t + holdFrames);
+}
+function updateDoor() {
+  if (doorTarget === 1 && t > doorHoldUntil && !animals.some(a => a.state === 'toBarn' || a.state === 'entering' || a.state === 'exiting')) {
+    doorTarget = 0;
+  }
+  doorOpen += (doorTarget - doorOpen) * .035;
+  if (Math.abs(doorTarget - doorOpen) < .001) doorOpen = doorTarget;
+  if (!doorWasOpen && doorTarget === 1 && doorOpen > .05) { creak(); doorWasOpen = true; }
+  if (doorWasOpen && doorTarget === 0 && doorOpen < .02) { latchClick(); doorWasOpen = false; }
+}
+function barnCount() { return animals.filter(a => a.state === 'inside').length; }
+
+function drawDoorLeaf(x, y, leafW, leafH, hingeRight) {
+  const apparent = Math.cos(doorOpen * .85);
+  const w = leafW * apparent;
+  const hingeX = hingeRight ? x + leafW : x;
+  const drawX = hingeRight ? hingeX - w : hingeX;
+  if (w > 1) {
+    ctx.fillStyle = '#fef2f2';
+    ctx.fillRect(drawX, y, w, leafH);
+    ctx.fillStyle = `rgba(127,29,29,${.25 * doorOpen})`;
+    ctx.fillRect(hingeRight ? drawX : drawX + w - 2, y, 2, leafH);
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(drawX, y); ctx.lineTo(drawX + w, y + leafH);
+    ctx.moveTo(drawX + w, y); ctx.lineTo(drawX, y + leafH);
+    ctx.stroke();
+    ctx.strokeStyle = '#7f1d1d'; ctx.lineWidth = 1;
+    ctx.strokeRect(drawX, y, w, leafH);
+  }
+  ctx.fillStyle = '#44403c';
+  ctx.fillRect(hingeRight ? x + leafW - 1 : x - 1, y + 6, 2, 4);
+  ctx.fillRect(hingeRight ? x + leafW - 1 : x - 1, y + leafH - 10, 2, 4);
+}
+
+function drawBarn() {
+  const b = barnRect();
+  const x = b.x, y = b.y, w = b.w, h = b.h;
+  const count = barnCount();
+  barnLight += ((count > 0 ? 1 : 0) - barnLight) * .08;
+
+  ctx.fillStyle = 'rgba(0,0,0,.2)';
+  ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + 2, w / 2 + 6, 6, 0, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = '#b91c1c';
+  ctx.fillRect(x, y + 30, w, h - 30);
+  ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 6; i++) {
+    const px = x + (w / 6) * i;
+    ctx.beginPath(); ctx.moveTo(px, y + 30); ctx.lineTo(px, y + h); ctx.stroke();
+  }
+
+  ctx.fillStyle = '#7f1d1d';
+  ctx.beginPath();
+  ctx.moveTo(x - 8, y + 32); ctx.lineTo(x + w / 2, y - 8); ctx.lineTo(x + w + 8, y + 32);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#991b1b';
+  ctx.beginPath();
+  ctx.moveTo(x - 4, y + 30); ctx.lineTo(x + w / 2, y - 2); ctx.lineTo(x + w + 4, y + 30);
+  ctx.closePath(); ctx.fill();
+
+  [x + 14, x + w - 28].forEach(wx => {
+    const wy = y + 44, ww = 14, wh = 14;
+    ctx.fillStyle = `rgba(254,242,242,${1 - barnLight * .6})`;
+    ctx.fillRect(wx, wy, ww, wh);
+    ctx.fillStyle = `rgba(253,224,71,${barnLight})`;
+    ctx.fillRect(wx, wy, ww, wh);
+    ctx.strokeStyle = '#7f1d1d'; ctx.lineWidth = 1;
+    ctx.strokeRect(wx, wy, ww, wh);
+  });
+
+  const dw = 34, dh = 46;
+  const dx = x + w / 2 - dw / 2;
+  const dy = y + h - dh;
+  const cx = dx + dw / 2;
+  const openW = dw / 2 * doorOpen;
+  if (barnLight > .02 || doorOpen > .02) {
+    const gap = openW * 2;
+    if (gap > 0) {
+      const glow = ctx.createRadialGradient(cx, dy + dh / 2, 2, cx, dy + dh / 2, 50);
+      glow.addColorStop(0, `rgba(253,224,71,${.6 * Math.max(barnLight, doorOpen)})`);
+      glow.addColorStop(1, 'rgba(253,224,71,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(cx - 50, dy - 30, 100, dh + 40);
+      ctx.fillStyle = `rgba(254,240,138,${.7 + .3 * barnLight})`;
+      ctx.fillRect(cx - gap / 2, dy, gap, dh);
+    }
+  }
+  if (doorOpen < .98) {
+    ctx.fillStyle = '#2a0d0d';
+    ctx.fillRect(dx, dy, dw, dh);
+  }
+  drawDoorLeaf(dx, dy, dw / 2, dh, false);
+  drawDoorLeaf(dx + dw / 2, dy, dw / 2, dh, true);
+
+  ctx.fillStyle = 'rgba(0,0,0,.5)';
+  ctx.font = '11px system-ui';
+  ctx.fillText(`Barn ${count > 0 ? '· ' + count + ' di dalam' : ''}`, x + w / 2 - 28, y - 12);
+}
+
+// ============================================================
+// HELPER GAMBAR HEWAN
+// ============================================================
+function circle(x, y, r, color) {
+  ctx.fillStyle = color; ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
+function ellipse(x, y, rx, ry, color) {
+  ctx.fillStyle = color; ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+}
+function line(x1, y1, x2, y2, color, w = 2) {
+  ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+}
+
+/**
+ * Menggambar kaki hewan yang menempel di dalam badan.
+ * @param {number[]} xs      - posisi X tiap kaki (relatif ke pusat hewan)
+ * @param {number}   bodyY   - pusat vertikal badan (y elips badan)
+ * @param {number}   bodyRy  - radius vertikal badan
+ * @param {number}   len     - panjang kaki
+ * @param {string}   color   - warna kaki
+ * @param {number}   step    - fase animasi jalan
+ * @param {number}   w       - tebal garis kaki
+ *
+ * Kaki dimulai di (bodyY + bodyRy * 0.7), yaitu sedikit di atas
+ * bagian bawah elips badan, sehingga tidak ada celah.
+ */
+function legs(xs, bodyY, bodyRy, len, color, step, w = 3) {
+  const baseY = bodyY + bodyRy * 0.7;
+  xs.forEach((x, i) => {
+    const swing = Math.sin(step + i * Math.PI) * 4;
+    line(x, baseY, x + swing, baseY + len, color, w);
+    ctx.fillStyle = color;
+    ctx.fillRect(x + swing - 2, baseY + len - 1, 4, 2);
+  });
+}
+
+function eye(x, y, r = 2.2, blink = false) {
+  if (blink) { line(x - 2.5, y, x + 2.5, y, '#111', 1.4); return; }
+  circle(x, y, r + 1.2, '#fff');
+  circle(x + .6, y, r, '#111');
+  circle(x + 1.2, y - .8, .8, '#fff');
+}
+function shadow(x, y, w) {
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  ctx.beginPath(); ctx.ellipse(x, y, w, 4, 0, 0, Math.PI * 2); ctx.fill();
+}
+
+// ============================================================
+// GAMBAR HEWAN (kaki memakai legs() dengan parameter badan)
+// ============================================================
+function drawSapi(a, step) {
+  const bob = Math.abs(Math.sin(step)) * 1.5;
+  const bY = -26 - bob, bRy = 13;
+  ellipse(0, bY, 22, bRy, '#fafaf9');
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(0, bY, 22, bRy, 0, 0, Math.PI * 2); ctx.clip();
+  ellipse(-8, -30 - bob, 7, 6, '#1c1917');
+  ellipse(8, -22 - bob, 6, 5, '#1c1917');
+  ellipse(16, -30 - bob, 4, 3, '#1c1917');
+  ctx.restore();
+  const tailSwing = Math.sin(step * .7) * 4;
+  line(-21, -30 - bob, -28 + tailSwing, -20 - bob, '#44403c', 2);
+  circle(-28 + tailSwing, -18 - bob, 2.5, '#44403c');
+  legs([-14, -6, 8, 15], bY, bRy, 13, '#e7e5e4', step, 3.5);
+  const headY = a.grazing ? -14 : -40 - bob;
+  ellipse(22, headY, 9, 8, '#fafaf9');
+  ellipse(28, headY + 3, 4, 3, '#fda4af');
+  line(19, headY - 7, 16, headY - 14, '#d6d3d1', 2.5);
+  line(25, headY - 7, 28, headY - 14, '#d6d3d1', 2.5);
+  eye(24, headY - 2, 1.8, a.blink > 0);
+  ellipse(15, headY - 3, 3, 2, '#fde68a');
+}
+function drawDomba(a, step) {
+  const bob = Math.abs(Math.sin(step)) * 1.2;
+  const bY = -20 - bob, bRy = 10;
+  for (let i = -2; i <= 2; i++) circle(i * 6, -22 - bob + (i % 2) * 2, 7, '#f5f5f4');
+  ellipse(0, bY, 16, bRy, '#fafaf9');
+  circle(-16, -22 - bob, 2.5, '#e7e5e4');
+  legs([-10, -3, 5, 12], bY, bRy, 11, '#57534e', step, 2.5);
+  const headY = a.grazing ? -6 : -34 - bob;
+  ellipse(18, headY, 7, 7, '#44403c');
+  ellipse(14, headY - 6, 2, 4, '#44403c');
+  line(16, headY - 6, 13, headY - 12, '#a8a29e', 2);
+  ellipse(23, headY + 2, 3, 2.2, '#57534e');
+  eye(20, headY - 2, 1.6, a.blink > 0);
+}
+function drawAyam(a, step) {
+  const bob = Math.abs(Math.sin(step * 2)) * 1.5;
+  const bY = -12 - bob, bRy = 9;
+  ellipse(-12, -14 - bob, 7, 10, '#f59e0b');
+  ellipse(-14, -18 - bob, 4, 7, '#b45309');
+  ellipse(0, bY, 12, bRy, '#fde68a');
+  ellipse(-2, -10 - bob, 6, 4, '#fcd34d');
+  ellipse(-1, -14 - bob + Math.sin(step) * 1.5, 6, 4, '#fbbf24');
+  legs([-3, 3], bY, bRy, 7, '#f97316', step, 2);
+  const headY = a.grazing ? -2 : -26 - bob;
+  circle(10, headY, 6, '#fef3c7');
+  circle(10, headY - 7, 3, '#ef4444');
+  circle(11, headY - 5, 2, '#dc2626');
+  ctx.fillStyle = '#f97316';
+  ctx.beginPath(); ctx.moveTo(15, headY); ctx.lineTo(20, headY + 1.5); ctx.lineTo(15, headY + 3); ctx.fill();
+  circle(14, headY + 6, 2, '#ef4444');
+  eye(12, headY - 1, 1.4, a.blink > 0);
+}
+function drawKuda(a, step) {
+  const bob = Math.abs(Math.sin(step)) * 2;
+  const tail = Math.sin(step * .6) * 3;
+  const bY = -34 - bob, bRy = 12;
+  line(-26, -36 - bob, -32 + tail, -28 - bob, '#451a03', 3);
+  ellipse(0, bY, 24, bRy, '#92400e');
+  ellipse(-4, -40 - bob, 14, 5, '#78350f');
+  for (let i = 0; i < 5; i++) line(14 + i * 1.5, -46 - bob + i * .5, 12 + i * 1.5, -40 - bob + i, '#1c1917', 2);
+  legs([-16, -8, 10, 18], bY, bRy, 18, '#78350f', step, 3);
+  const headY = a.grazing ? -22 : -56 - bob;
+  line(18, -40 - bob, 24, headY, '#92400e', 8);
+  ellipse(28, headY, 7, 5, '#a16207');
+  ellipse(33, headY + 3, 4, 3, '#78350f');
+  eye(28, headY - 2, 1.6, a.blink > 0);
+  ellipse(24, headY - 6, 1.5, 3.5, '#78350f');
+}
+function drawBabi(a, step) {
+  const bob = Math.abs(Math.sin(step)) * 1.2;
+  const bY = -18 - bob, bRy = 12;
+  ellipse(0, bY, 20, bRy, '#fbcfe8');
+  ellipse(-4, -22 - bob, 10, 4, '#f9a8d4');
+  ctx.strokeStyle = '#f9a8d4'; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.arc(-22, -22 - bob, 4, 0, Math.PI * 1.6); ctx.stroke();
+  legs([-12, -4, 6, 13], bY, bRy, 8, '#f472b6', step, 3);
+  const headY = a.grazing ? -6 : -28 - bob;
+  ellipse(20, headY, 9, 8, '#fbcfe8');
+  ellipse(27, headY + 2, 4, 3, '#f9a8d4');
+  circle(26, headY + 1.5, .8, '#be185d'); circle(28.5, headY + 1.5, .8, '#be185d');
+  ctx.fillStyle = '#f9a8d4';
+  ctx.beginPath(); ctx.moveTo(16, headY - 6); ctx.lineTo(20, headY - 13); ctx.lineTo(22, headY - 5); ctx.fill();
+  eye(19, headY - 2, 1.6, a.blink > 0);
+}
+function drawBebek(a, step) {
+  const bob = Math.abs(Math.sin(step * 2)) * 1.2;
+  const bY = -10 - bob, bRy = 8;
+  ellipse(0, bY, 14, bRy, '#fef08a');
+  ellipse(-3, -12 - bob, 8, 3, '#fde047');
+  ctx.fillStyle = '#fde047';
+  ctx.beginPath(); ctx.moveTo(-12, -12 - bob); ctx.lineTo(-18, -16 - bob); ctx.lineTo(-14, -8 - bob); ctx.fill();
+  ellipse(-2, -10 - bob, 7, 3.5, '#facc15');
+  legs([-4, 4], bY, bRy, 5, '#f97316', step, 2);
+  const headY = a.grazing ? 0 : -22 - bob;
+  circle(10, headY, 6, '#fef08a');
+  ctx.fillStyle = '#f97316';
+  ctx.beginPath(); ctx.ellipse(16, headY + 2, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
+  eye(11, headY - 2, 1.4, a.blink > 0);
+}
+function drawKambing(a, step) {
+  const bob = Math.abs(Math.sin(step)) * 1.2;
+  const bY = -22 - bob, bRy = 10;
+  ellipse(0, bY, 18, bRy, '#d6d3d1');
+  ellipse(-6, -24 - bob, 4, 3, '#a8a29e');
+  circle(-18, -24 - bob, 2, '#a8a29e');
+  legs([-12, -5, 4, 11], bY, bRy, 12, '#78716c', step, 2.5);
+  const headY = a.grazing ? -6 : -38 - bob;
+  line(12, -26 - bob, 16, headY, '#d6d3d1', 6);
+  ellipse(19, headY, 6, 6, '#e7e5e4');
+  ellipse(23, headY + 3, 3, 2.5, '#a8a29e');
+  line(22, headY + 5, 21, headY + 10, '#a8a29e', 1.5);
+  line(16, headY - 5, 13, headY - 14, '#78716c', 2);
+  line(20, headY - 5, 23, headY - 13, '#78716c', 2);
+  ellipse(14, headY - 2, 3, 1.5, '#d6d3d1');
+  eye(20, headY - 1.5, 1.6, a.blink > 0);
+}
+function drawRusa(a, step) {
+  const bob = Math.abs(Math.sin(step)) * 1.5;
+  const bY = -26 - bob, bRy = 10;
+  ellipse(0, bY, 18, bRy, '#b45309');
+  ellipse(0, -20 - bob, 14, 4, '#fde68a');
+  circle(-17, -28 - bob, 2.5, '#fde68a');
+  legs([-11, -4, 5, 12], bY, bRy, 15, '#78350f', step, 2.5);
+  const headY = a.grazing ? -8 : -40 - bob;
+  line(14, -30 - bob, 18, headY, '#b45309', 6);
+  ellipse(20, headY, 6, 5, '#b45309');
+  ellipse(25, headY + 2, 3, 2, '#78350f');
+  ctx.strokeStyle = '#a16207'; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(18, headY - 4); ctx.lineTo(16, headY - 14);
+  ctx.moveTo(16, headY - 9); ctx.lineTo(12, headY - 12);
+  ctx.moveTo(20, headY - 4); ctx.lineTo(22, headY - 14);
+  ctx.moveTo(22, headY - 9); ctx.lineTo(26, headY - 12);
+  ctx.stroke();
+  eye(22, headY - 1.5, 1.5, a.blink > 0);
+  ellipse(16, headY - 3, 3, 1.5, '#b45309');
+}
+function drawUnta(a, step) {
+  const bob = Math.abs(Math.sin(step)) * 2;
+  const bY = -24 - bob, bRy = 11;
+  ellipse(-2, -34 - bob, 9, 8, '#d6a15a');
+  ellipse(0, bY, 18, bRy, '#e0b06a');
+  ellipse(-4, -26 - bob, 10, 5, '#c8914a');
+  line(-17, -24 - bob, -22, -16 - bob, '#a16207', 2);
+  legs([-10, -3, 6, 13], bY, bRy, 14, '#b45309', step, 3);
+  const headY = a.grazing ? -12 : -58 - bob;
+  line(14, -28 - bob, 18, headY, '#d6a15a', 7);
+  ellipse(21, headY, 6, 5, '#e0b06a');
+  ellipse(25, headY + 2, 3, 2, '#c8914a');
+  eye(22, headY - 2, 1.5, a.blink > 0);
+  line(20, headY - 3, 19, headY - 6, '#78350f', 1);
+}
+const DRAW_MAP = {
+  sapi: drawSapi, domba: drawDomba, ayam: drawAyam, kuda: drawKuda,
+  babi: drawBabi, bebek: drawBebek, kambing: drawKambing, rusa: drawRusa, unta: drawUnta
+};
+
+// ============================================================
+// EFEK GOSONG
+// ============================================================
+function drawCharred(a) {
+  if (!a.charred || a.charred <= 0) return;
+  const c = a.charred;
+
+  ctx.save();
+  ctx.globalAlpha = .55 * c;
+  ctx.fillStyle = '#1c1917';
+  ctx.beginPath(); ctx.ellipse(0, -22, 20, 13, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(18, -34, 9, 8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  const seed = a.phase * 100;
+  ctx.save();
+  ctx.globalAlpha = .85 * c;
+  ctx.fillStyle = '#0c0a09';
+  for (let i = 0; i < 7; i++) {
+    const px = Math.sin(seed + i * 2.3) * 14;
+    const py = -26 + Math.cos(seed + i * 1.7) * 8;
+    const pr = 2 + Math.abs(Math.sin(seed + i)) * 3;
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.save();
+  for (let i = 0; i < 3; i++) {
+    const rise = ((t * .6 + i * 18) % 50);
+    const alpha = (1 - rise / 50) * .35 * c;
+    ctx.fillStyle = `rgba(120,113,108,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(-6 + i * 8 + Math.sin(rise * .1 + i) * 2, -44 - rise, 3 + rise * .05, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  a.charred = Math.max(0, a.charred - .0007);
+}
+
+// ============================================================
+// HEWAN: SPAWN, AI, GAMBAR
+// ============================================================
+const NAMES = {
+  sapi: 'Sapi', domba: 'Domba', ayam: 'Ayam', kuda: 'Kuda', babi: 'Babi',
+  bebek: 'Bebek', kambing: 'Kambing', rusa: 'Rusa', unta: 'Unta'
+};
+const REACTIONS = {
+  sapi: 'Moo~', domba: 'Mbeeek!', ayam: 'Kukuruyuk!', kuda: 'Hihiii!', babi: 'Oink oink!',
+  bebek: 'Kwek kwek!', kambing: 'Mbek!', rusa: 'Tuk tuk...', unta: 'Brrrr...'
+};
+
+function spawnAnimals() {
+  const s = SEASONS[seasonIdx];
+  animals = [];
+  for (let i = 0; i < 10; i++) {
+    animals.push({
+      kind: s.animals[i % s.animals.length],
+      x: W * .6 + Math.random() * (W * .35),
+      y: H * .72 + Math.random() * 40,
+      dir: Math.random() > .5 ? 1 : -1,
+      speed: .25 + Math.random() * .5,
+      baseSpeed: 0,
+      phase: Math.random() * 10,
+      grazing: Math.random() > .7,
+      blink: 0,
+      state: 'roam',
+      stateT: 0,
+      target: null,
+      hop: 0,
+      label: 0,
+      alpha: 1,
+      lastStepPhase: 0,
+      scale: 1,
+      charred: 0
+    });
+  }
+  animals.forEach(a => a.baseSpeed = a.speed);
+  animals.sort((a, b) => a.y - b.y);
+}
+
+function updateHomeQueue() {
+  const cycle = (t % 1800) / 1800;
+  const evening = cycle > .72 && cycle < .97;
+  if (evening && !homeCycleStarted) {
+    homeCycleStarted = true;
+    const door = barnDoor();
+    homeQueue = animals.filter(a => a.state === 'roam' || a.state === 'feed')
+      .sort((a, b) => Math.abs(a.x - door.x) - Math.abs(b.x - door.x));
+    nextHomeAt = t + 30;
+    log('Senja: hewan mulai pulang ke barn 🏠');
+  }
+  if (!evening && homeCycleStarted) {
+    homeCycleStarted = false;
+    animals.forEach(a => { if (a.state === 'toBarn') a.state = 'roam'; });
+  }
+  if (homeCycleStarted && homeQueue.length && t >= nextHomeAt) {
+    const next = homeQueue.shift();
+    if (next && (next.state === 'roam' || next.state === 'feed')) {
+      next.state = 'toBarn';
+      next.target = null;
+      nextHomeAt = t + 80 + Math.random() * 60;
+    }
+  }
+}
+
+function maybeFootstep(a, phase, volFactor) {
+  const cur = Math.floor(phase / Math.PI);
+  if (cur !== a.lastStepPhase) {
+    a.lastStepPhase = cur;
+    footstep(.05 * volFactor, .9 + Math.random() * .2);
+  }
+}
+function easeInOut(p) { return p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; }
+
+function updateAnimal(a) {
+  if (a.blink > 0) a.blink--;
+  else if (Math.random() < .005) a.blink = 6;
+  if (a.hop > 0) a.hop--;
+  if (a.label > 0) a.label--;
+
+  const door = barnDoor();
+
+  switch (a.state) {
+    case 'roam': {
+      if (a.target) {
+        const dx = a.target.x - a.x;
+        a.dir = dx > 0 ? 1 : -1;
+        a.x += a.dir * a.baseSpeed * 1.8;
+        maybeFootstep(a, t * .12 * a.speed * 4 + a.phase, 1);
+        if (Math.abs(dx) < 6) { a.target = null; a.state = 'feed'; a.stateT = 0; }
+        a.grazing = false;
+      } else {
+        a.x += a.dir * a.speed * (a.grazing ? 0 : 1);
+        if (!a.grazing) maybeFootstep(a, t * .12 * a.speed * 4 + a.phase, .8);
+        if (a.x > W - 20) a.dir = -1;
+        if (a.x < W * .5) a.dir = 1;
+        if (Math.random() < .002) a.grazing = !a.grazing;
+      }
+      break;
+    }
+    case 'feed': {
+      a.grazing = true;
+      a.stateT++;
+      if (a.stateT > 240) { a.state = 'roam'; a.grazing = false; }
+      break;
+    }
+    case 'react': {
+      a.stateT++;
+      a.hop = Math.max(a.hop, 1);
+      if (a.stateT > 60) { a.state = 'roam'; a.stateT = 0; }
+      break;
+    }
+    case 'shocked': {
+      a.stateT++;
+      a.grazing = false;
+      a.hop = Math.max(a.hop, 1);
+      if (a.stateT > 60) { a.state = 'roam'; a.stateT = 0; }
+      break;
+    }
+    case 'toBarn': {
+      requestDoorOpen(150);
+      const dx = door.x - a.x;
+      a.dir = dx > 0 ? 1 : -1;
+      a.grazing = false;
+      const dist = Math.abs(dx);
+      const ease = Math.min(1, dist / 40);
+      const sp = a.baseSpeed * (.6 + .9 * ease);
+      if (dist > 2) {
+        a.x += Math.sign(dx) * sp;
+        maybeFootstep(a, t * .12 * a.speed * 4 + a.phase, .4 + .6 * ease);
+      } else {
+        a.state = 'entering';
+        a.stateT = 0;
+      }
+      break;
+    }
+    case 'entering': {
+      a.stateT++;
+      const p = Math.min(1, a.stateT / 26);
+      a.alpha = 1 - easeInOut(p);
+      a.scale = 1 - .15 * easeInOut(p);
+      if (a.stateT === 1) footstep(.04, .7);
+      if (a.stateT >= 26) {
+        a.state = 'inside';
+        a.stateT = 0;
+        a.alpha = 0;
+        a.scale = 1;
+        log(`${NAMES[a.kind]} sudah masuk barn 🐾`);
+      }
+      break;
+    }
+    case 'inside': {
+      a.stateT++;
+      const cycle = (t % 1800) / 1800;
+      if (cycle < .72 && a.stateT > 120) {
+        a.state = 'exiting';
+        a.stateT = 0;
+        a.alpha = 0;
+        a.scale = .85;
+        a.dir = Math.random() > .5 ? 1 : -1;
+        a.x = door.x;
+        requestDoorOpen(120);
+        log(`${NAMES[a.kind]} keluar dari barn 🌤️`);
+      }
+      break;
+    }
+    case 'exiting': {
+      a.stateT++;
+      const p = Math.min(1, a.stateT / 30);
+      a.alpha = easeInOut(p);
+      a.scale = .85 + .15 * easeInOut(p);
+      a.x = door.x + a.dir * 4 * easeInOut(p);
+      if (a.stateT === 4) footstep(.04, .7);
+      if (a.stateT >= 30) {
+        a.state = 'roam';
+        a.stateT = 0;
+        a.alpha = 1;
+        a.scale = 1;
+        a.x = door.x + a.dir * 18;
+      }
+      break;
+    }
+  }
+}
+
+function drawAnimal(a) {
+  if (a.state === 'inside') return;
+  const isTransit = a.state === 'entering' || a.state === 'exiting';
+  if (isTransit) ctx.globalAlpha = Math.max(0, Math.min(1, a.alpha));
+
+  const moving = a.state !== 'feed' && !(a.grazing && a.state === 'roam');
+  const step = moving ? t * .12 * a.speed * 4 + a.phase : 0;
+  let hopY = a.hop > 0 ? -Math.abs(Math.sin(a.hop * .3)) * 12 : 0;
+  if (a.state === 'shocked') hopY = Math.sin(t * 1.5) * 2;
+  const yPos = a.y + hopY + (a.grazing ? 0 : Math.sin(step * 2) * .5);
+
+  if (!isTransit) shadow(a.x, a.y + 2, 22);
+  ctx.save();
+  ctx.translate(a.x, yPos);
+  ctx.scale(a.dir * a.scale, a.scale);
+  if (a.state === 'shocked') {
+    ctx.strokeStyle = 'rgba(253,224,71,.8)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 6; i++) {
+      const ang = (i / 6) * Math.PI * 2 + t * .3;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ang) * 22, -24 + Math.sin(ang) * 14);
+      ctx.lineTo(Math.cos(ang) * 30, -24 + Math.sin(ang) * 20);
+      ctx.stroke();
+    }
+  }
+  (DRAW_MAP[a.kind] || drawAyam)(a, a.grazing ? 0 : step);
+  drawCharred(a);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  if (a.label > 0) {
+    ctx.font = 'bold 12px system-ui';
+    const txt = NAMES[a.kind];
+    const w = ctx.measureText(txt).width + 12;
+    ctx.fillStyle = 'rgba(15,23,42,.85)';
+    ctx.fillRect(a.x - w / 2, yPos - 60, w, 18);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText(txt, a.x, yPos - 47);
+    ctx.textAlign = 'left';
+  }
+}
+
+function drawAnimals() {
+  updateHomeQueue();
+  updateDoor();
+  animals.sort((a, b) => a.y - b.y);
+  animals.forEach(a => {
+    updateAnimal(a);
+    if (a.state === 'roam' && a.x > W + 40) a.x = -40;
+    if (a.state === 'roam' && a.x < -40) a.x = W + 40;
+    drawAnimal(a);
+  });
+}
+
+function drawFoods() {
+  foods = foods.filter(f => f.life > 0);
+  foods.forEach(f => {
+    f.life--;
+    ctx.font = '16px system-ui';
+    ctx.globalAlpha = Math.min(1, f.life / 40);
+    ctx.fillText('🌾', f.x - 8, f.y);
+    ctx.globalAlpha = 1;
+  });
+}
+
+// ============================================================
+// PETIR
+// ============================================================
+function strikeBolt(x1, y1, x2, y2, life) {
+  const pts = [{ x: x1, y: y1 }];
+  const steps = 8;
+  for (let i = 1; i < steps; i++) {
+    const f = i / steps;
+    pts.push({
+      x: x1 + (x2 - x1) * f + (Math.random() - .5) * 30,
+      y: y1 + (y2 - y1) * f + (Math.random() - .5) * 10
+    });
+  }
+  pts.push({ x: x2, y: y2 });
+  bolts.push({ pts, life, maxLife: life });
+}
+function drawBolts() {
+  bolts = bolts.filter(b => b.life > 0);
+  bolts.forEach(b => {
+    const a = b.life / b.maxLife;
+    ctx.strokeStyle = `rgba(254,240,138,${a})`;
+    ctx.lineWidth = 3 * a + 1;
+    ctx.shadowColor = '#fde047';
+    ctx.shadowBlur = 12 * a;
+    ctx.beginPath();
+    ctx.moveTo(b.pts[0].x, b.pts[0].y);
+    for (let i = 1; i < b.pts.length; i++) ctx.lineTo(b.pts[i].x, b.pts[i].y);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    b.life--;
+  });
+}
+function sparkAt(x, y) {
+  for (let i = 0; i < 14; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 1 + Math.random() * 3;
+    sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1, life: 30 });
+  }
+}
+function drawSparks() {
+  sparks = sparks.filter(s => s.life > 0);
+  sparks.forEach(s => {
+    s.x += s.vx; s.y += s.vy; s.vy += .08; s.life--;
+    ctx.fillStyle = `rgba(253,224,71,${s.life / 30})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 2, 0, Math.PI * 2); ctx.fill();
+  });
+}
+function lightningFlash(s) {
+  if (!s.storm) return;
+  if (t >= nextLightning) {
+    flashAlpha = 1;
+    nextLightning = t + 220 + Math.random() * 300;
+    const cx = W * (.2 + Math.random() * .6);
+    strikeBolt(cx, 90, cx + (Math.random() - .5) * 60, H * .7, 22);
+    thunder();
+    if (Math.random() < .6) {
+      const roaming = animals.filter(a => a.state === 'roam' || a.state === 'feed');
+      if (roaming.length) {
+        const target = roaming.reduce((best, a) => Math.abs(a.x - cx) < Math.abs(best.x - cx) ? a : best);
+        if (Math.abs(target.x - cx) < 120) {
+          strikeBolt(cx, 90, target.x, target.y - 60, 18);
+          sparkAt(target.x, target.y - 20);
+          target.state = 'shocked';
+          target.stateT = 0;
+          target.charred = 1;
+          log(`⚡ Petir menyambar ${NAMES[target.kind]}! Tubuhnya gosong.`);
+          beep(1200, .15, 'square', .08, 300);
+        }
+      }
+    }
+  }
+  if (flashAlpha > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${flashAlpha * .35})`;
+    ctx.fillRect(0, 0, W, H);
+    flashAlpha = Math.max(0, flashAlpha - .06);
+  }
+}
+
+// ============================================================
+// SUARA EFEK
+// ============================================================
+let audioCtx = null;
+let muted = false;
+let masterGain = null;
+function getAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.connect(audioCtx.destination);
+  }
+  return audioCtx;
+}
+function out() { getAudio(); return masterGain; }
+
+function beep(freq, dur = .25, type = 'sine', vol = .15, slideTo = null) {
+  if (muted) return;
+  try {
+    const ac = getAudio();
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, ac.currentTime);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, ac.currentTime + dur);
+    g.gain.setValueAtTime(vol, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + dur);
+    o.connect(g); g.connect(out());
+    o.start(); o.stop(ac.currentTime + dur);
+  } catch (e) {}
+}
+function thunder() {
+  if (muted) return;
+  try {
+    const ac = getAudio();
+    const dur = 1.6;
+    const buf = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = ac.createBufferSource();
+    const g = ac.createGain();
+    g.gain.value = .5;
+    src.buffer = buf;
+    src.connect(g); g.connect(out());
+    src.start();
+  } catch (e) {}
+}
+function footstep(volume = .08, pitch = 1) {
+  if (muted) return;
+  try {
+    const ac = getAudio();
+    const dur = .09;
+    const buf = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = pitch;
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 700 + Math.random() * 300;
+    const g = ac.createGain();
+    g.gain.value = volume;
+    src.connect(lp); lp.connect(g); g.connect(out());
+    src.start();
+  } catch (e) {}
+}
+function creak() {
+  if (muted) return;
+  try {
+    const ac = getAudio();
+    const dur = .7;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(180, ac.currentTime);
+    o.frequency.linearRampToValueAtTime(260, ac.currentTime + dur);
+    const f = ac.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 4;
+    g.gain.setValueAtTime(0, ac.currentTime);
+    g.gain.linearRampToValueAtTime(.05, ac.currentTime + .15);
+    g.gain.linearRampToValueAtTime(0, ac.currentTime + dur);
+    o.connect(f); f.connect(g); g.connect(out());
+    o.start(); o.stop(ac.currentTime + dur);
+  } catch (e) {}
+}
+function latchClick() {
+  if (muted) return;
+  try {
+    const ac = getAudio();
+    const dur = .08;
+    const buf = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 6);
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    const g = ac.createGain(); g.gain.value = .4;
+    src.connect(g); g.connect(out());
+    src.start();
+  } catch (e) {}
+}
+function thud(volume = .15, pitch = 1) {
+  if (muted) return;
+  try {
+    const ac = getAudio();
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(180 * pitch, ac.currentTime);
+    o.frequency.exponentialRampToValueAtTime(70, ac.currentTime + .12);
+    g.gain.setValueAtTime(volume, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + .14);
+    o.connect(g); g.connect(out());
+    o.start(); o.stop(ac.currentTime + .15);
+  } catch (e) {}
+}
+function honkSound() {
+  beep(420, .25, 'square', .12);
+  setTimeout(() => beep(360, .3, 'square', .12), 150);
+}
+
+const SOUNDS = {
+  sapi:    () => beep(120, .6, 'sawtooth', .12, 90),
+  domba:   () => { beep(420, .18, 'triangle', .15); setTimeout(() => beep(460, .18, 'triangle', .15), 220); setTimeout(() => beep(400, .25, 'triangle', .15), 440); },
+  ayam:    () => { beep(700, .12, 'square', .1); setTimeout(() => beep(900, .12, 'square', .1), 130); setTimeout(() => beep(1100, .25, 'square', .1), 260); },
+  kuda:    () => { beep(600, .15, 'square', .1, 800); setTimeout(() => beep(800, .25, 'square', .1, 500), 180); },
+  babi:    () => { beep(180, .2, 'sawtooth', .12, 140); setTimeout(() => beep(160, .2, 'sawtooth', .12, 120), 200); },
+  bebek:   () => { beep(500, .12, 'square', .1, 380); setTimeout(() => beep(500, .12, 'square', .1, 380), 180); },
+  kambing: () => { beep(500, .18, 'triangle', .14, 650); setTimeout(() => beep(650, .25, 'triangle', .14, 450), 230); },
+  rusa:    () => beep(900, .3, 'sine', .08, 1200),
+  unta:    () => beep(260, .5, 'sawtooth', .1, 180)
+};
+
+// ============================================================
+// MUSIK LATAR PER MUSIM (prosedural)
+// ============================================================
+const MUSIC_PROG = {
+  semi:    { key: 60, mode: 'major', bpm: 116, prog: [[0,'maj'],[7,'maj'],[9,'min'],[5,'maj']], melodyWave: 'triangle', arpWave: 'sine',     padWave: 'sine',     swing: .08 },
+  panas:   { key: 55, mode: 'major', bpm: 100, prog: [[0,'maj'],[5,'maj'],[7,'maj'],[0,'maj']], melodyWave: 'sine',     arpWave: 'triangle', padWave: 'triangle', swing: .15 },
+  gugur:   { key: 57, mode: 'minor', bpm: 78,  prog: [[9,'min'],[5,'maj'],[0,'maj'],[7,'maj']], melodyWave: 'triangle', arpWave: 'sine',     padWave: 'sine',     swing: .05 },
+  dingin:  { key: 62, mode: 'minor', bpm: 66,  prog: [[0,'min'],[8,'maj'],[3,'maj'],[10,'maj']], melodyWave: 'sine',     arpWave: 'sine',     padWave: 'triangle', swing: 0 },
+  hujan:   { key: 50, mode: 'minor', bpm: 86,  prog: [[0,'min'],[10,'maj'],[8,'maj'],[7,'maj']], melodyWave: 'sine',     arpWave: 'triangle', padWave: 'sine',     swing: .2 },
+  kemarau: { key: 52, mode: 'phrygian', bpm: 90, prog: [[0,'min'],[1,'maj'],[8,'maj'],[7,'maj']], melodyWave: 'triangle', arpWave: 'sine',   padWave: 'sawtooth', swing: .1 }
+};
+
+const SCALES = {
+  major:    [0, 2, 4, 5, 7, 9, 11],
+  minor:    [0, 2, 3, 5, 7, 8, 10],
+  phrygian: [0, 1, 3, 5, 7, 8, 10]
+};
+
+function mtof(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+function chordTones(root, type) {
+  const third = type === 'min' || type === 'dim' ? 3 : 4;
+  const fifth = type === 'dim' ? 6 : 7;
+  return [root, root + third, root + fifth];
+}
+
+let musicOn = true;
+let musicBus = null;
+let musicPlaying = null;
+let musicBar = 0;
+
+// ---- Media user (audio & video) ----
+let mediaBuffers = {};
+let mediaSource = null;
+let mediaUrls = {};
+
+function makeReverb(ac, seconds = 2.2, decay = 2.5) {
+  const len = ac.sampleRate * seconds;
+  const buf = ac.createBuffer(2, len, ac.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+  }
+  const conv = ac.createConvolver();
+  conv.buffer = buf;
+  return conv;
+}
+
+function ensureMusicBus() {
+  if (musicBus) return musicBus;
+  const ac = getAudio();
+  const master = ac.createGain();
+  master.gain.value = .9;
+  const dry = ac.createGain(); dry.gain.value = .8;
+  const wet = ac.createGain(); wet.gain.value = .35;
+  const reverb = makeReverb(ac);
+  master.connect(dry); dry.connect(out());
+  master.connect(reverb); reverb.connect(wet); wet.connect(out());
+  musicBus = { master, timer: null };
+  return musicBus;
+}
+
+function voice(freq, when, dur, type, vol, pan = 0, attack = .02, release = .25) {
+  const ac = getAudio();
+  const bus = ensureMusicBus();
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, when);
+  o.detune.setValueAtTime((Math.random() - .5) * 8, when);
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(vol, when + attack);
+  g.gain.linearRampToValueAtTime(vol * .7, when + dur * .6);
+  g.gain.exponentialRampToValueAtTime(.001, when + dur + release);
+  o.connect(g);
+  if (ac.createStereoPanner) {
+    const p = ac.createStereoPanner();
+    p.pan.value = pan;
+    g.connect(p); p.connect(bus.master);
+  } else {
+    g.connect(bus.master);
+  }
+  o.start(when);
+  o.stop(when + dur + release + .05);
+}
+
+function kick(when, vol) {
+  const ac = getAudio();
+  const bus = ensureMusicBus();
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(120, when);
+  o.frequency.exponentialRampToValueAtTime(40, when + .15);
+  g.gain.setValueAtTime(vol, when);
+  g.gain.exponentialRampToValueAtTime(.001, when + .2);
+  o.connect(g); g.connect(bus.master);
+  o.start(when); o.stop(when + .25);
+}
+function hat(when, vol) {
+  const ac = getAudio();
+  const bus = ensureMusicBus();
+  const len = Math.floor(ac.sampleRate * .05);
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4);
+  const src = ac.createBufferSource();
+  src.buffer = buf;
+  const hp = ac.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 7000;
+  const g = ac.createGain(); g.gain.value = vol;
+  src.connect(hp); hp.connect(g); g.connect(bus.master);
+  src.start(when);
+}
+
+function scheduleBar(key, when) {
+  const cfg = MUSIC_PROG[key];
+  const beat = 60 / cfg.bpm;
+  const scale = SCALES[cfg.mode];
+  const [rootOffset, quality] = cfg.prog[musicBar % cfg.prog.length];
+  const rootMidi = cfg.key + rootOffset;
+  const tones = chordTones(rootMidi, quality);
+  const barLen = beat * 4;
+
+  tones.forEach((m, i) => {
+    voice(mtof(m), when, barLen, cfg.padWave, .018, (i - 1) * .5, .4, .5);
+    voice(mtof(m + 12), when, barLen, cfg.padWave, .008, (i - 1) * .4, .5, .6);
+  });
+
+  for (let b = 0; b < 4; b++) {
+    const bassNote = (b === 2 && musicBar % 2 === 1) ? tones[2] - 12 : rootMidi - 12;
+    voice(mtof(bassNote), when + b * beat, beat * .9, 'sine', .07, 0, .01, .1);
+  }
+
+  for (let i = 0; i < 8; i++) {
+    const m = tones[i % 3] + (i >= 6 ? 12 : 0);
+    const swing = (i % 2 === 1) ? beat / 2 * cfg.swing : 0;
+    voice(mtof(m), when + i * beat / 2 + swing, beat * .45, cfg.arpWave, .025, (i % 2 ? .4 : -.4), .005, .15);
+  }
+
+  const melRhythm = [0, .5, 1.5, 2.5, 3];
+  melRhythm.forEach((pos, i) => {
+    const idx = scale.indexOf(((tones[i % 3] - cfg.key) % 12 + 12) % 12);
+    const deg = idx >= 0 ? idx : 0;
+    const step = (deg + (i % 2 ? 2 : 1) + musicBar) % scale.length;
+    const m = cfg.key + 12 + scale[step];
+    voice(mtof(m), when + pos * beat, beat * .85, cfg.melodyWave, .045, .2, .02, .35);
+  });
+
+  kick(when, .25);
+  kick(when + beat * 2, .18);
+  for (let i = 0; i < 8; i++) hat(when + i * beat / 2, .04);
+
+  musicBar++;
+}
+
+function startProcMusic(key) {
+  stopProcMusic();
+  const bus = ensureMusicBus();
+  musicPlaying = key;
+  musicBar = 0;
+  const cfg = MUSIC_PROG[key];
+  const barDur = (60 / cfg.bpm) * 4;
+  const ac = getAudio();
+  let nextBar = ac.currentTime + .1;
+
+  const sched = () => {
+    if (musicPlaying !== key || !musicOn) return;
+    while (nextBar < ac.currentTime + .6) {
+      scheduleBar(key, nextBar);
+      nextBar += barDur;
+    }
+  };
+  sched();
+  bus.timer = setInterval(sched, 150);
+}
+
+function stopProcMusic() {
+  if (musicBus && musicBus.timer) {
+    clearInterval(musicBus.timer);
+    musicBus.timer = null;
+  }
+  musicPlaying = null;
+}
+
+function stopMedia() {
+  if (mediaSource) {
+    try { mediaSource.stop(); } catch (e) {}
+    mediaSource = null;
+  }
+  const v = document.getElementById('bgVideo');
+  v.pause();
+  v.removeAttribute('src');
+  v.load();
+  v.classList.remove('show');
+  document.getElementById('bgVideoClose').classList.remove('show');
+}
+
+function stopAllMusic() {
+  stopMedia();
+  stopProcMusic();
+}
+
+function playMediaForSeason(key) {
+  const buf = mediaBuffers[key] || mediaBuffers.all;
+  const vidUrl = mediaUrls[key] || mediaUrls.all;
+  if (!buf && !vidUrl) return false;
+
+  stopMedia();
+  stopProcMusic();
+
+  if (buf) {
+    const ac = getAudio();
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const g = ac.createGain();
+    g.gain.value = .6;
+    src.connect(g); g.connect(out());
+    src.start();
+    mediaSource = src;
+  }
+  if (vidUrl) {
+    const v = document.getElementById('bgVideo');
+    v.src = vidUrl;
+    v.muted = true;
+    v.classList.add('show');
+    document.getElementById('bgVideoClose').classList.add('show');
+    v.play().catch(() => {});
+  }
+  return true;
+}
+
+function startMusicForSeason(key) {
+  if (!musicOn || muted) return;
+  if (playMediaForSeason(key)) {
+    log(`🎵 Memutar media untuk musim ${SEASONS[seasonIdx].name}`);
+  } else {
+    startProcMusic(key);
+    log(`🎵 Musik prosedural musim ${SEASONS[seasonIdx].name} diputar`);
+  }
+}
+
+const VIDEO_EXT = /\.(mp4|webm|mov|mkv|m4v|ogv)$/i;
+const AUDIO_EXT = /\.(mp3|wav|ogg|m4a|aac|flac|opus|weba)$/i;
+function isVideoFile(f) { return f.type.startsWith('video/') || VIDEO_EXT.test(f.name); }
+function isAudioFile(f) { return f.type.startsWith('audio/') || AUDIO_EXT.test(f.name); }
+
+function decodeFileToBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const ac = getAudio();
+        const buf = await ac.decodeAudioData(reader.result.slice(0));
+        resolve(buf);
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function loadMediaFile(file, slot) {
+  if (isVideoFile(file)) {
+    if (mediaUrls[slot]) URL.revokeObjectURL(mediaUrls[slot]);
+    mediaUrls[slot] = URL.createObjectURL(file);
+  } else {
+    if (mediaUrls[slot]) { URL.revokeObjectURL(mediaUrls[slot]); delete mediaUrls[slot]; }
+  }
+  try {
+    mediaBuffers[slot] = await decodeFileToBuffer(file);
+  } catch (err) {
+    if (!isVideoFile(file)) throw err;
+    delete mediaBuffers[slot];
+    log(`Audio dari "${file.name}" tidak bisa didecode browser, hanya video yang ditampilkan.`);
+  }
+}
+
+// ============================================================
+// LOG
+// ============================================================
+function log(msg) {
+  const el = document.getElementById('log');
+  const d = document.createElement('div');
+  d.textContent = `[${new Date().toLocaleTimeString('id-ID')}] ${msg}`;
+  el.prepend(d);
+}
+
+// ============================================================
+// UPLOAD (tombol) & DRAG-AND-DROP AUDIO / VIDEO
+// ============================================================
+const mediaBtn = document.getElementById('mediaBtn');
+const mediaInput = document.getElementById('mediaInput');
+const mediaStatus = document.getElementById('mediaStatus');
+const sceneEl = document.getElementById('scene');
+const SEASON_KEYS = SEASONS.map(s => s.key);
+
+async function handleMediaFiles(fileList) {
+  const files = [...fileList].filter(f => isAudioFile(f) || isVideoFile(f));
+  if (!files.length) {
+    log('Tidak ada file audio/video yang valid.');
+    return;
+  }
+  getAudio();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+  try {
+    if (files.length === 1) {
+      await loadMediaFile(files[0], 'all');
+      mediaStatus.textContent = `Media: "${files[0].name}" untuk semua musim`;
+    } else {
+      const n = Math.min(files.length, SEASON_KEYS.length);
+      for (let i = 0; i < n; i++) await loadMediaFile(files[i], SEASON_KEYS[i]);
+      mediaStatus.textContent = `Media: ${n} file (urut: ${SEASON_KEYS.slice(0, n).join(', ')})`;
+    }
+    log('📁 Media berhasil dimuat');
+    if (musicOn) startMusicForSeason(SEASONS[seasonIdx].key);
+  } catch (err) {
+    log('Gagal memuat media: ' + err.message);
+  }
+}
+
+mediaBtn.addEventListener('click', () => mediaInput.click());
+mediaInput.addEventListener('change', (e) => {
+  const files = e.target.files;
+  if (files && files.length) handleMediaFiles(files);
+  mediaInput.value = '';
+});
+
+document.getElementById('clearMediaBtn').addEventListener('click', () => {
+  stopMedia();
+  Object.keys(mediaUrls).forEach(k => URL.revokeObjectURL(mediaUrls[k]));
+  mediaUrls = {};
+  mediaBuffers = {};
+  mediaStatus.textContent = 'Musik: prosedural (belum ada file audio/video)';
+  log('Media dihapus, kembali ke musik prosedural');
+  if (musicOn) startProcMusic(SEASONS[seasonIdx].key);
+});
+
+document.getElementById('bgVideoClose').addEventListener('click', () => {
+  const v = document.getElementById('bgVideo');
+  v.pause();
+  v.classList.remove('show');
+  document.getElementById('bgVideoClose').classList.remove('show');
+});
+
+// Drag & drop
+let dragDepth = 0;
+sceneEl.addEventListener('dragenter', (e) => {
+  e.preventDefault();
+  dragDepth++;
+  sceneEl.classList.add('dragover');
+});
+sceneEl.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+sceneEl.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  dragDepth--;
+  if (dragDepth <= 0) {
+    dragDepth = 0;
+    sceneEl.classList.remove('dragover');
+  }
+});
+sceneEl.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  sceneEl.classList.remove('dragover');
+  if (e.dataTransfer.files && e.dataTransfer.files.length) {
+    handleMediaFiles(e.dataTransfer.files);
+  }
+});
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => e.preventDefault());
+
+// ============================================================
+// ORDER
+// ============================================================
+function spawnFlyer() {
+  flyers.push({ x: W * .5, y: H * .45, tx: W * .92, ty: H * .15, p: 0, emoji: ['📦', '🛒', '🧾', '🚚'][Math.floor(Math.random() * 4)] });
+}
+function drawFlyers() {
+  flyers = flyers.filter(f => f.p < 1);
+  flyers.forEach(f => {
+    f.p += .01;
+    const x = f.x + (f.tx - f.x) * f.p;
+    const y = f.y + (f.ty - f.y) * f.p - Math.sin(f.p * Math.PI) * 60;
+    ctx.font = '26px system-ui';
+    ctx.fillText(f.emoji, x, y);
+  });
+}
+
+const STATUS_FLOW = ['pending', 'paid', 'processing', 'shipped', 'completed'];
+const STATUS_LABEL = { pending: 'Menunggu', paid: 'Dibayar', processing: 'Diproses', shipped: 'Dikirim', completed: 'Selesai' };
+
+function buildOrder() {
+  const s = SEASONS[seasonIdx];
+  const items = s.products.map(p => ({ ...p, qty: 1 + Math.floor(Math.random() * 3) }));
+  const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+  orderNo++;
+  return { no: 1000 + orderNo, season: s.name, items, total, status: 'pending' };
+}
+function renderOrderBox() {
+  const badge = document.getElementById('ordBadge');
+  const list = document.getElementById('ordItems');
+  const totalEl = document.getElementById('ordTotal');
+  if (!currentOrder) {
+    document.getElementById('ordNo').textContent = '-';
+    badge.textContent = 'belum ada';
+    badge.className = 'badge b-pending';
+    list.innerHTML = '<li>Belum ada pesanan.</li>';
+    totalEl.textContent = '0';
+    return;
+  }
+  document.getElementById('ordNo').textContent = currentOrder.no;
+  badge.textContent = STATUS_LABEL[currentOrder.status];
+  badge.className = 'badge b-' + currentOrder.status;
+  list.innerHTML = currentOrder.items
+    .map(i => `<li>${i.name} × ${i.qty} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}</li>`)
+    .join('');
+  totalEl.textContent = currentOrder.total.toLocaleString('id-ID');
+}
+async function runAutoOrder() {
+  if (currentOrder && currentOrder.status !== 'completed') {
+    log('Order sebelumnya masih berjalan.');
+    return;
+  }
+  currentOrder = buildOrder();
+  log(`Order #${currentOrder.no} dibuat untuk musim ${currentOrder.season}`);
+  renderOrderBox();
+  spawnFlyer();
+  for (let i = 1; i < STATUS_FLOW.length; i++) {
+    await new Promise(r => setTimeout(r, 1300));
+    currentOrder.status = STATUS_FLOW[i];
+    log(`Order #${currentOrder.no} → ${STATUS_LABEL[currentOrder.status]}`);
+    renderOrderBox();
+    if (i === 3) spawnFlyer();
+  }
+}
+document.getElementById('orderBtn').addEventListener('click', runAutoOrder);
+
+// ============================================================
+// INTERAKSI KLIK PADA CANVAS
+// ============================================================
+function canvasPos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function hitAnimal(px, py) {
+  for (let i = animals.length - 1; i >= 0; i--) {
+    const a = animals[i];
+    if (a.state === 'inside' || a.alpha < .5) continue;
+    const yPos = a.y + (a.hop > 0 ? -Math.abs(Math.sin(a.hop * .3)) * 12 : 0);
+    if (Math.abs(px - a.x) < 32 && py > yPos - 60 && py < yPos + 10) return a;
+  }
+  return null;
+}
+
+canvas.addEventListener('click', (e) => {
+  getAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (musicOn && !musicPlaying && !mediaSource) startMusicForSeason(SEASONS[seasonIdx].key);
+
+  const p = canvasPos(e);
+
+  if (hitTractor(p.x, p.y)) {
+    tractor.honk = 30;
+    honkSound();
+    log(`🚜 Traktor ${SEASONS[seasonIdx].name} membunyikan klakson`);
+    return;
+  }
+
+  const apple = hitApple(p.x, p.y);
+  if (apple) {
+    apple.state = 'collected';
+    collected++;
+    log(`🍎 Apel dipungut (total ${collected})`);
+    beep(880, .1, 'triangle', .08, 1100);
+    return;
+  }
+
+  const a = hitAnimal(p.x, p.y);
+
+  if (feedMode) {
+    foods.push({ x: p.x, y: p.y, life: 200 });
+    let nearest = null, best = Infinity;
+    animals.forEach(an => {
+      if (['inside', 'toBarn', 'entering', 'exiting'].includes(an.state)) return;
+      const d = Math.abs(an.x - p.x);
+      if (d < best) { best = d; nearest = an; }
+    });
+    if (nearest) {
+      nearest.target = { x: p.x };
+      nearest.state = 'roam';
+      log(`${NAMES[nearest.kind]} datang untuk makan 🌾`);
+      beep(520, .1, 'triangle', .08);
+    }
+    return;
+  }
+
+  if (a) {
+    a.label = 150;
+    a.state = 'react';
+    a.stateT = 0;
+    a.hop = 30;
+    a.dir = (p.x > a.x) ? 1 : -1;
+    tooltip.style.display = 'block';
+    tooltip.style.left = a.x + 'px';
+    tooltip.style.top = (a.y - 60) + 'px';
+    tooltip.textContent = `${NAMES[a.kind]}: "${REACTIONS[a.kind]}"`;
+    setTimeout(() => tooltip.style.display = 'none', 1600);
+    if (SOUNDS[a.kind]) SOUNDS[a.kind]();
+    log(`Menyapa ${NAMES[a.kind]}: "${REACTIONS[a.kind]}"`);
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const p = canvasPos(e);
+  const overApple = hitApple(p.x, p.y);
+  canvas.style.cursor = feedMode ? 'copy'
+    : (overApple || hitAnimal(p.x, p.y) || hitTractor(p.x, p.y)) ? 'pointer'
+    : 'crosshair';
+});
+
+// ============================================================
+// TOMBOL MUSIM
+// ============================================================
+SEASONS.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.textContent = `${s.emoji} ${s.name}`;
+  b.addEventListener('click', () => setSeason(i));
+  btnWrap.appendChild(b);
+});
+
+function markActive() {
+  [...btnWrap.children].forEach((b, i) => b.classList.toggle('active', i === seasonIdx));
+}
+
+// ============================================================
+// TOMBOL LAINNYA
+// ============================================================
+document.getElementById('feedBtn').addEventListener('click', (e) => {
+  feedMode = !feedMode;
+  e.currentTarget.classList.toggle('active', feedMode);
+  e.currentTarget.textContent = feedMode ? '🌾 Mode Beri Makan: On' : '🌾 Mode Beri Makan';
+  log(feedMode ? 'Mode beri makan aktif' : 'Mode beri makan nonaktif');
+});
+document.getElementById('dayBtn').addEventListener('click', (e) => {
+  dayMode = !dayMode;
+  e.currentTarget.textContent = dayMode ? '🌗 Siklus Hari: On' : '🌗 Siklus Hari: Off';
+  log(dayMode ? 'Siklus siang-malam aktif' : 'Siklus siang-malam dimatikan');
+});
+document.getElementById('muteBtn').addEventListener('click', (e) => {
+  muted = !muted;
+  e.currentTarget.textContent = muted ? '🔇 Suara: Off' : '🔊 Suara: On';
+  if (masterGain) masterGain.gain.value = muted ? 0 : 1;
+});
+document.getElementById('musicBtn').addEventListener('click', (e) => {
+  musicOn = !musicOn;
+  e.currentTarget.textContent = musicOn ? '🎵 Musik: On' : '🎵 Musik: Off';
+  if (musicOn) {
+    getAudio();
+    startMusicForSeason(SEASONS[seasonIdx].key);
+    log('Musik latar diaktifkan');
+  } else {
+    stopAllMusic();
+    log('Musik latar dimatikan');
+  }
+});
+
+// ============================================================
+// GANTI MUSIM
+// ============================================================
+function setSeason(i) {
+  seasonIdx = i;
+  transition = 0;
+  spawnParticles();
+  spawnAnimals();
+  spawnBirds();
+  spawnClouds();
+  buildLandscape();
+  foods = [];
+  bolts = [];
+  fallingApples = [];
+  trailParticles = [];
+  rainbow = null;
+  doorTarget = 0;
+  doorOpen = 0;
+  nextLightning = t + 120;
+  markActive();
+  log(`Musim diubah ke ${SEASONS[i].emoji} ${SEASONS[i].name}`);
+  renderOrderBox();
+  if (musicOn) startMusicForSeason(SEASONS[i].key);
+}
+
+// ============================================================
+// LOOP UTAMA
+// ============================================================
+function frame() {
+  t++;
+  dayPhase = (dayPhase + .00012) % 1;
+  const s = SEASONS[seasonIdx];
+  if (transition < 1) transition = Math.min(1, transition + .02);
+
+  ctx.clearRect(0, 0, W, H);
+  drawSky(s);
+  drawStars();
+  drawAurora();
+  drawSun(s);
+  drawClouds(s);
+  drawMountains(s);
+  drawHills(s);
+  drawBirds();
+  drawGround(s);
+  drawLandscape(s);
+  drawBees();
+  drawOrchard(s);
+  drawBarn();
+  drawFireflies();
+  drawAnimals();
+  updateFallingApples();
+  drawFallingApples();
+  updateTractor();
+  drawTrail();
+  drawTractor();
+  drawFoods();
+  drawSparks();
+  drawBolts();
+  drawParticles(s);
+  drawFog();
+  drawGodRays();
+  updateRainbow();
+  drawRainbow();
+  drawFlyers();
+  lightningFlash(s);
+
+  if (transition < 1) {
+    ctx.fillStyle = `rgba(11,16,32,${1 - transition})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+resize();
+setSeason(0);
+frame();
+</script>
+</body>
+</html>
